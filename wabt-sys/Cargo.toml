@@ -3,8 +3,6 @@ name = "wabt-sys"
 version = "0.1.0"
 authors = ["Sergey Pepyakin <s.pepyakin@gmail.com>"]
 
-[dependencies]
-
 [build-dependencies]
 bindgen = "0.30.0"
 cmake = "0.1.25"
