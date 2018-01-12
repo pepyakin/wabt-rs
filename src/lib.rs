@@ -1,3 +1,6 @@
+//! Bindings to the [wabt](https://github.com/WebAssembly/wabt) library.
+//! 
+
 extern crate wabt_sys;
 
 use std::os::raw::c_void;
@@ -7,6 +10,8 @@ use std::ptr;
 use wabt_sys::*;
 
 /// A structure to represent errors coming out from wabt.
+/// 
+/// Actual errors are not yet published.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error(ErrorKind);
 
@@ -19,7 +24,29 @@ enum ErrorKind {
 
 /// Translate wasm text source to wasm binary format.
 /// 
-/// Returned binary should be executable.
+/// If wasm source is valid wasm binary will be returned in the vector. 
+/// Returned binary is validated and can be executed.
+/// 
+/// For more examples and online demo you can check online version
+/// of [wat2wasm](https://cdn.rawgit.com/WebAssembly/wabt/aae5a4b7/demo/wat2wasm/).
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// extern crate wabt;
+/// use wabt::wat2wasm;
+/// 
+/// fn main() {
+///     assert_eq!(
+///         wat2wasm("(module)").unwrap(),
+///         &[
+///             0, 97, 115, 109, // \0ASM - magic
+///             1, 0, 0, 0       //  0x01 - version
+///         ]
+///     );
+/// }
+/// ```
+/// 
 pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
     let filename = CString::new("test.wast").unwrap();
     let data = CString::new(src).unwrap();

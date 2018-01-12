@@ -1,8 +1,9 @@
 [package]
 name = "wabt"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Sergey Pepyakin <s.pepyakin@gmail.com>"]
 license = "Apache-2.0"
+readme = "README.md"
 repository = "https://github.com/pepyakin/wabt-rs"
 homepage = "https://github.com/pepyakin/wabt-rs"
 description = "Bindings to the wabt library"
