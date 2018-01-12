@@ -27,7 +27,7 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
     unsafe {
         let error_handler = wabt_new_text_error_handler_buffer();
         let lexer =
-            wabt_new_wast_buffer_lexer(filename.as_ptr(), data.as_ptr() as *const c_void, 8);
+            wabt_new_wast_buffer_lexer(filename.as_ptr(), data.as_ptr() as *const c_void, src.len());
 
         let result = wabt_parse_wat(lexer, error_handler);
         if wabt_parse_wat_result_get_result(result) == ResultEnum::Error {
@@ -71,6 +71,14 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
 fn test_wat2wasm() {
     assert_eq!(
         wat2wasm("(module)").unwrap(),
+        &[0, 97, 115, 109, 1, 0, 0, 0]
+    );
+
+    assert_eq!(
+        wat2wasm(
+            r#"
+            (module
+            )"#).unwrap(),
         &[0, 97, 115, 109, 1, 0, 0, 0]
     );
 
