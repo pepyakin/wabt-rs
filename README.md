@@ -16,6 +16,8 @@ wabt = "0.1"
 
 ## Example
 
+`wat2wasm`:
+
 ```rust
 extern crate wabt;
 use wabt::wat2wasm;
@@ -27,6 +29,22 @@ fn main() {
             0, 97, 115, 109, // \0ASM - magic
             1, 0, 0, 0       //  0x01 - version
         ]
+    );
+}
+```
+
+`wasm2wat`:
+
+```rust
+extern crate wabt;
+use wabt::wasm2wat;
+fn main() {
+    assert_eq!(
+        wasm2wat(&[
+            0, 97, 115, 109, // \0ASM - magic
+            1, 0, 0, 0       //    01 - version
+        ]),
+        Ok("(module)\n".to_owned()),
     );
 }
 ```
