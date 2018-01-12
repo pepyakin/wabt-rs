@@ -53,6 +53,10 @@ extern "C" {
         error_handler: *mut ErrorHandlerBuffer,
     ) -> ResultEnum;
 
+    pub fn wabt_destroy_module(
+        module: *mut WasmModule,
+    );
+
     pub fn wabt_write_binary_module(
         module: *mut WasmModule,
         log: c_int,
