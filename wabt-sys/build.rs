@@ -1,6 +1,4 @@
-extern crate bindgen;
 extern crate cmake;
-extern crate cc;
 
 use std::env;
 
