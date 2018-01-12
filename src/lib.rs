@@ -6,14 +6,20 @@ use std::ptr;
 
 use wabt_sys::*;
 
+/// A structure to represent errors coming out from wabt.
 #[derive(Debug, PartialEq, Eq)]
-pub enum Error {
+pub struct Error(ErrorKind);
+
+#[derive(Debug, PartialEq, Eq)]
+enum ErrorKind {
     Parse,
     ResolveNames,
     Validate,
 }
 
-/// Translate wat source to wasm binary.
+/// Translate wasm text source to wasm binary format.
+/// 
+/// Returned binary should be executable.
 pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
     let filename = CString::new("test.wast").unwrap();
     let data = CString::new(src).unwrap();
@@ -25,19 +31,19 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
 
         let result = wabt_parse_wat(lexer, error_handler);
         if wabt_parse_wat_result_get_result(result) == ResultEnum::Error {
-            return Err(Error::Parse);
+            return Err(Error(ErrorKind::Parse));
         }
 
         let module = wabt_parse_wat_result_release_module(result);
 
         let result = wabt_resolve_names_module(lexer, module, error_handler);
         if result == ResultEnum::Error {
-            return Err(Error::ResolveNames);
+            return Err(Error(ErrorKind::ResolveNames));
         }
 
         let result = wabt_validate_module(lexer, module, error_handler);
         if result == ResultEnum::Error {
-            return Err(Error::Validate);
+            return Err(Error(ErrorKind::Validate));
         }
 
         let result = wabt_write_binary_module(module, 0, 1, 0, 0);
@@ -53,6 +59,7 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
         ptr::copy_nonoverlapping(out_data, result.as_mut_ptr(), out_size);
 
         wabt_destroy_output_buffer(output_buffer);
+        wabt_destroy_module(module);
         wabt_destroy_wast_lexer(lexer);
         wabt_destroy_error_handler_buffer(error_handler);
 
@@ -69,6 +76,6 @@ fn test_wat2wasm() {
 
     assert_eq!(
         wat2wasm("(modu"),
-        Err(Error::Parse)
+        Err(Error(ErrorKind::Parse))
     );
 }
