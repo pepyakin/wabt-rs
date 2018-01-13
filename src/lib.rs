@@ -1,6 +1,8 @@
 //! Bindings to the [wabt](https://github.com/WebAssembly/wabt) library.
 //!
 
+#![deny(missing_docs)]
+
 extern crate wabt_sys;
 
 use std::os::raw::{c_void, c_int};
@@ -124,7 +126,7 @@ impl ParseWatResult {
         }
     }
 
-    fn module(self) -> Result<*mut ffi::WasmModule, ()> {
+    fn take_module(self) -> Result<*mut ffi::WasmModule, ()> {
         if self.is_ok() {
             unsafe {
                 Ok(ffi::wabt_parse_wat_result_release_module(self.raw_result))
@@ -163,7 +165,7 @@ impl ReadBinaryResult {
         }
     }
 
-    fn module(self) -> Result<*mut ffi::WasmModule, ()> {
+    fn take_module(self) -> Result<*mut ffi::WasmModule, ()> {
         if self.is_ok() {
             unsafe {
                 Ok(ffi::wabt_read_binary_result_release_module(self.raw_result))
@@ -182,12 +184,32 @@ impl Drop for ReadBinaryResult {
     }
 }
 
-struct OutputBuffer {
+/// Buffer returned by wabt.
+/// 
+/// # Examples 
+/// 
+/// You can convert it either to `Vec`:
+/// 
+/// ```rust
+/// # extern crate wabt;
+/// # let wabt_buf = wabt::Wat2Wasm::new().convert("(module)").unwrap();
+/// let vec: Vec<u8> = wabt_buf.as_ref().to_vec();
+/// ```
+/// 
+/// Or in `String`:
+/// 
+/// ```rust
+/// # extern crate wabt;
+/// # let wabt_buf = wabt::Wat2Wasm::new().convert("(module)").unwrap();
+/// let text = String::from_utf8(wabt_buf.as_ref().to_vec()).unwrap();
+/// ```
+/// 
+pub struct WabtBuf {
     raw_buffer: *mut ffi::OutputBuffer,
 }
 
-impl OutputBuffer {
-    fn data(&self) -> &[u8] {
+impl AsRef<[u8]> for WabtBuf {
+    fn as_ref(&self) -> &[u8] {
         unsafe {
             let size = ffi::wabt_output_buffer_get_size(self.raw_buffer);
             if size == 0 {
@@ -201,7 +223,7 @@ impl OutputBuffer {
     }
 }
 
-impl Drop for OutputBuffer {
+impl Drop for WabtBuf {
     fn drop(&mut self) {
         unsafe {
             ffi::wabt_destroy_output_buffer(self.raw_buffer);
@@ -220,12 +242,12 @@ impl WriteModuleResult {
         }
     }
 
-    fn output_buffer(self) -> Result<OutputBuffer, ()> {
+    fn take_wabt_buf(self) -> Result<WabtBuf, ()> {
         if self.is_ok() {
             let raw_buffer = unsafe {
                 ffi::wabt_write_module_result_release_output_buffer(self.raw_result)
             };
-            Ok(OutputBuffer {
+            Ok(WabtBuf {
                 raw_buffer,
             })
         } else {
@@ -260,6 +282,32 @@ impl Default for WriteBinaryOptions {
     }
 }
 
+struct WriteTextOptions {
+    fold_exprs: bool,
+    inline_export: bool,    
+}
+
+impl Default for WriteTextOptions {
+    fn default() -> WriteTextOptions {
+        WriteTextOptions {
+            fold_exprs: false,
+            inline_export: false,
+        }
+    }
+}
+
+struct ReadBinaryOptions {
+    read_debug_names: bool,
+}
+
+impl Default for ReadBinaryOptions {
+    fn default() -> ReadBinaryOptions {
+        ReadBinaryOptions {
+            read_debug_names: false,
+        }
+    }
+}
+
 struct Module {
     raw_module: *mut ffi::WasmModule,
     lexer: Option<Lexer>,
@@ -269,7 +317,7 @@ impl Module {
     fn parse_wat<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Module, Error> {
         let lexer = Lexer::new(filename, source.as_ref())?;
         let error_handler = ErrorHandler::new_text();
-        match parse_wat(&lexer, &error_handler).module() {
+        match parse_wat(&lexer, &error_handler).take_module() {
             Ok(module) => Ok(
                 Module {
                     raw_module: module,
@@ -283,14 +331,15 @@ impl Module {
         }
     }
 
-    fn read_binary(wasm: &[u8]) -> Result<Module, Error> {
+    fn read_binary<S: AsRef<[u8]>>(wasm: S, options: &ReadBinaryOptions) -> Result<Module, Error> {
         let error_handler = ErrorHandler::new_binary();
         let result = {
+            let wasm = wasm.as_ref();
             let raw_result = unsafe {
                 ffi::wabt_read_binary(
                     wasm.as_ptr(), 
                     wasm.len(), 
-                    true as c_int, 
+                    options.read_debug_names as c_int, 
                     error_handler.raw_buffer
                 )
             };
@@ -298,7 +347,7 @@ impl Module {
                 raw_result,
             }
         };
-        match result.module() {
+        match result.take_module() {
             Ok(module) => Ok(
                 Module {
                     raw_module: module,
@@ -338,7 +387,7 @@ impl Module {
         Ok(())
     }
 
-    fn write_binary(&self, options: &WriteBinaryOptions) -> Result<OutputBuffer, Error> {
+    fn write_binary(&self, options: &WriteBinaryOptions) -> Result<WabtBuf, Error> {
         let result = unsafe {
             let raw_result = ffi::wabt_write_binary_module(
                 self.raw_module,
@@ -350,19 +399,21 @@ impl Module {
             WriteModuleResult { raw_result }
         };
         result
-            .output_buffer()
+            .take_wabt_buf()
             .map_err(|_| Error(ErrorKind::WriteBinary))
     }
 
-    fn write_text(&self) -> Result<OutputBuffer, Error> {
+    fn write_text(&self, options: &WriteTextOptions) -> Result<WabtBuf, Error> {
         let result = unsafe {
             let raw_result = ffi::wabt_write_text_module(
-                self.raw_module, 0, 0
+                self.raw_module, 
+                options.fold_exprs as c_int, 
+                options.inline_export as c_int,
             );
             WriteModuleResult { raw_result }
         };
         result
-            .output_buffer()
+            .take_wabt_buf()
             .map_err(|_| Error(ErrorKind::WriteText))
     }
 }
@@ -459,7 +510,7 @@ impl Wat2Wasm {
     // TODO: Add logged version of convert
 
     /// Perform conversion.
-    pub fn convert<S: AsRef<[u8]>>(&self, source: S) -> Result<Vec<u8>, Error> {
+    pub fn convert<S: AsRef<[u8]>>(&self, source: S) -> Result<WabtBuf, Error> {
         let mut module = Module::parse_wat("test.wast", source)?;
         module.resolve_names()?;
 
@@ -467,10 +518,123 @@ impl Wat2Wasm {
             module.validate()?;
         }
 
-        let output_buffer = module.write_binary(&self.write_binary_options)?;
-        let result = output_buffer.data().to_vec();
-
+        let result = module.write_binary(&self.write_binary_options)?;
         Ok(result)
+    }
+}
+
+/// A builder for converting wasm binary to wasm text format.
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// extern crate wabt;
+/// use wabt::Wasm2Wat;
+///
+/// fn main() {
+///     let wasm_text = Wasm2Wat::new()
+///         .fold_exprs(true)
+///         .inline_export(true)
+///         .convert(
+///             &[
+///                 0, 97, 115, 109, // \0ASM - magic
+///                 1, 0, 0, 0       //  0x01 - version
+///             ]
+///         ).unwrap();
+/// 
+///     # wasm_text;
+/// }
+/// ```
+/// 
+pub struct Wasm2Wat {
+    read_binary_options: ReadBinaryOptions,
+    write_text_options: WriteTextOptions,
+}
+
+impl Wasm2Wat {
+    /// Create `Wasm2Wat` with default configuration.
+    pub fn new() -> Wasm2Wat {
+        Wasm2Wat {
+            read_binary_options: ReadBinaryOptions::default(),
+            write_text_options: WriteTextOptions::default(),
+        }
+    }
+
+    /// Read debug names in the binary file.
+    /// 
+    /// `false` by default.
+    pub fn read_debug_names(&mut self, read_debug_names: bool) -> &mut Wasm2Wat {
+        self.read_binary_options.read_debug_names = read_debug_names;
+        self
+    }
+
+    /// Write folded expressions where possible.
+    /// 
+    /// Example of folded code (if `true`):
+    /// 
+    /// ```WebAssembly
+    /// (module
+    ///     (func (param i32 i32) (result i32)
+    ///         (i32.add ;; Add loaded arguments
+    ///             (get_local 0) ;; Load first arg
+    ///             (get_local 1) ;; Load second arg
+    ///         )
+    ///     )
+    /// )
+    /// ```
+    /// 
+    /// Example of straight code (if `false`):
+    /// 
+    /// ```WebAssembly
+    /// (module
+    ///     (func (param i32 i32) (result i32)
+    ///         get_local 0 ;; Load first arg
+    ///         get_local 1 ;; Load second arg
+    ///         i32.add     ;; Add loaded arguments
+    ///     )
+    /// )
+    /// ```
+    /// 
+    /// `false` by default.
+    pub fn fold_exprs(&mut self, fold_exprs: bool) -> &mut Wasm2Wat {
+        self.write_text_options.fold_exprs = fold_exprs;
+        self
+    }
+
+    /// Write all exports inline.
+    /// 
+    /// Example of code with inline exports (if `true`):
+    /// 
+    /// ```WebAssembly
+    /// (module
+    /// (func $addTwo (export "addTwo") (param $p0 i32) (param $p1 i32) (result i32)
+    ///   (i32.add
+    ///     (get_local $p0)
+    ///     (get_local $p1))))
+    /// ```
+    /// 
+    /// Example of code with separate exports (if `false`):
+    /// 
+    /// ```WebAssembly
+    /// (module
+    ///   (func $addTwo (param $p0 i32) (param $p1 i32) (result i32)
+    ///     (i32.add
+    ///       (get_local $p0)
+    ///       (get_local $p1)))
+    ///   (export "addTwo" (func $addTwo)))
+    /// ```
+    /// 
+    /// `false` by default.
+    pub fn inline_export(&mut self, inline_export: bool) -> &mut Wasm2Wat {
+        self.write_text_options.inline_export = inline_export;
+        self
+    }
+
+    /// Perform conversion.
+    pub fn convert<S: AsRef<[u8]>>(&self, wasm: S) -> Result<WabtBuf, Error> {
+        let module = Module::read_binary(wasm, &self.read_binary_options)?;
+        let output_buffer = module.write_text(&self.write_text_options)?;
+        Ok(output_buffer)
     }
 }
 
@@ -506,7 +670,8 @@ impl Wat2Wasm {
 /// ```
 ///
 pub fn wat2wasm<S: AsRef<[u8]>>(source: S) -> Result<Vec<u8>, Error> {
-    Wat2Wasm::new().convert(source)
+    let result_buf = Wat2Wasm::new().convert(source)?;
+    Ok(result_buf.as_ref().to_vec())
 }
 
 /// Disassemble wasm binary to wasm text format.
@@ -528,11 +693,10 @@ pub fn wat2wasm<S: AsRef<[u8]>>(source: S) -> Result<Vec<u8>, Error> {
 /// }
 /// ```
 ///
-pub fn wasm2wat(wasm: &[u8]) -> Result<String, Error> {
-    let module = Module::read_binary(wasm)?;
-    let output_buffer = module.write_text()?;
-    let text = String::from_utf8(output_buffer.data().to_vec())
-        .map_err(|_| Error(ErrorKind::NonUtf8Result))?;
+pub fn wasm2wat<S: AsRef<[u8]>>(wasm: S) -> Result<String, Error> {
+    let result_buf = Wasm2Wat::new().convert(wasm)?;
+    let text = String::from_utf8(result_buf.as_ref().to_vec())
+            .map_err(|_| Error(ErrorKind::NonUtf8Result))?;
     Ok(text)
 }
 
@@ -552,7 +716,7 @@ fn module() {
   (export "e" (func 1)))
 "#).unwrap();
 
-    let mut module = Module::read_binary(&binary_module).unwrap();
+    let mut module = Module::read_binary(&binary_module, &ReadBinaryOptions::default()).unwrap();
     module.resolve_names().unwrap();
     module.validate().unwrap();
 }
@@ -604,15 +768,15 @@ fn test_wasm2wat() {
 #[cfg_attr(rustfmt, rustfmt_skip)]
 fn roundtrip() {
     #[cfg_attr(rustfmt, rustfmt_skip)]
-    let factorial = &[
+    let factorial: &[u8] = &[
         0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 124, 1, 124, 3, 2, 1, 0, 7, 7, 
         1, 3, 102, 97, 99, 0, 0, 10, 46, 1, 44, 0, 32, 0, 68, 0, 0, 0, 0, 0, 0, 240, 
         63, 99, 4, 124, 68, 0, 0, 0, 0, 0, 0, 240, 63, 5, 32, 0, 32, 0, 68, 0, 0, 0, 
         0, 0, 0, 240, 63, 161, 16, 0, 162, 11, 11
     ];
 
-    let text = wasm2wat(factorial).unwrap();
+    let text = wasm2wat(&factorial).unwrap();
     let binary = wat2wasm(&text).unwrap();
 
-    assert_eq!(&*factorial as &[u8], &*binary);
+    assert_eq!(&*factorial, &*binary);
 }
