@@ -1,6 +1,6 @@
 [package]
 name = "wabt"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Sergey Pepyakin <s.pepyakin@gmail.com>"]
 license = "Apache-2.0"
 readme = "README.md"
@@ -11,4 +11,4 @@ categories = ["api-bindings"]
 keywords = ["tools", "webassembly", "wasm"]
 
 [dependencies]
-wabt-sys = { path = "wabt-sys", version = "0.1.2" }
+wabt-sys = { path = "wabt-sys", version = "0.1.3" }
