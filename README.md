@@ -16,7 +16,7 @@ wabt = "0.1"
 
 ## Example
 
-`wat2wasm`:
+`wat2wasm` (previously known as `wast2wasm`):
 
 ```rust
 extern crate wabt;
