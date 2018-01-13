@@ -8,7 +8,6 @@ use std::ffi::{CString, NulError};
 use std::slice;
 use std::ptr;
 
-use wabt_sys::*;
 use wabt_sys as ffi;
 
 /// A structure to represent errors coming out from wabt.
@@ -70,7 +69,7 @@ impl Drop for Lexer {
 }
 
 struct ErrorHandler {
-    raw_buffer: *mut ErrorHandlerBuffer,
+    raw_buffer: *mut ffi::ErrorHandlerBuffer,
 }
 
 impl ErrorHandler {
@@ -120,14 +119,14 @@ struct ParseWatResult {
 impl ParseWatResult {
     fn is_ok(&self) -> bool {
         unsafe {
-            ffi::wabt_parse_wat_result_get_result(self.raw_result) == ResultEnum::Ok
+            ffi::wabt_parse_wat_result_get_result(self.raw_result) == ffi::Result::Ok
         }
     }
 
     fn module(self) -> Result<*mut ffi::WasmModule, ()> {
         if self.is_ok() {
             unsafe {
-                Ok(wabt_parse_wat_result_release_module(self.raw_result))
+                Ok(ffi::wabt_parse_wat_result_release_module(self.raw_result))
             }
         } else {
             Err(())
@@ -159,14 +158,14 @@ struct ReadBinaryResult {
 impl ReadBinaryResult {
     fn is_ok(&self) -> bool {
         unsafe {
-            ffi::wabt_read_binary_result_get_result(self.raw_result) == ResultEnum::Ok
+            ffi::wabt_read_binary_result_get_result(self.raw_result) == ffi::Result::Ok
         }
     }
 
     fn module(self) -> Result<*mut ffi::WasmModule, ()> {
         if self.is_ok() {
             unsafe {
-                Ok(wabt_read_binary_result_release_module(self.raw_result))
+                Ok(ffi::wabt_read_binary_result_release_module(self.raw_result))
             }
         } else {
             Err(())
@@ -184,7 +183,7 @@ impl Drop for ReadBinaryResult {
 
 fn read_binary(wasm: &[u8], error_handler: &ErrorHandler) -> ReadBinaryResult {
     let raw_result = unsafe {
-         wabt_read_binary(
+         ffi::wabt_read_binary(
             wasm.as_ptr(), 
             wasm.len(), 
             true as c_int, 
@@ -203,12 +202,12 @@ struct OutputBuffer {
 impl OutputBuffer {
     fn data(&self) -> &[u8] {
         unsafe {
-            let size = wabt_output_buffer_get_size(self.raw_buffer);
+            let size = ffi::wabt_output_buffer_get_size(self.raw_buffer);
             if size == 0 {
                 return &[];
             }
             
-            let data = wabt_output_buffer_get_data(self.raw_buffer) as *const u8;
+            let data = ffi::wabt_output_buffer_get_data(self.raw_buffer) as *const u8;
 
             slice::from_raw_parts(data, size)
         }
@@ -230,7 +229,7 @@ struct WriteModuleResult {
 impl WriteModuleResult {
     fn is_ok(&self) -> bool {
         unsafe {
-            ffi::wabt_write_module_result_get_result(self.raw_result) == ResultEnum::Ok
+            ffi::wabt_write_module_result_get_result(self.raw_result) == ffi::Result::Ok
         }
     }
 
@@ -300,7 +299,7 @@ impl Module {
         unsafe {
             let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
             let result = ffi::wabt_resolve_names_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
-            if result == ResultEnum::Error {
+            if result == ffi::Result::Error {
                 let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
                 return Err(Error(ErrorKind::ResolveNames(msg)));
             }
@@ -312,8 +311,8 @@ impl Module {
         let error_handler = ErrorHandler::new_text();
         unsafe {
             let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
-            let result = wabt_validate_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
-            if result == ResultEnum::Error {
+            let result = ffi::wabt_validate_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
+            if result == ffi::Result::Error {
                 let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
                 return Err(Error(ErrorKind::Validate(msg)));
             }
@@ -350,7 +349,7 @@ impl Module {
 impl Drop for Module {
     fn drop(&mut self) {
         unsafe {
-            wabt_destroy_module(self.raw_module);
+            ffi::wabt_destroy_module(self.raw_module);
         }
     }
 }

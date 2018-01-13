@@ -10,7 +10,7 @@ pub enum OutputBuffer {}
 
 #[derive(Debug, PartialEq, Eq)]
 #[repr(C)]
-pub enum ResultEnum {
+pub enum Result {
     Ok,
     Error,
 }
@@ -43,7 +43,7 @@ extern "C" {
         error_handler: *mut ErrorHandlerBuffer,
     ) -> *mut WabtParseWatResult;
 
-    pub fn wabt_parse_wat_result_get_result(result: *mut WabtParseWatResult) -> ResultEnum;
+    pub fn wabt_parse_wat_result_get_result(result: *mut WabtParseWatResult) -> Result;
 
     pub fn wabt_parse_wat_result_release_module(result: *mut WabtParseWatResult)
         -> *mut WasmModule;
@@ -54,21 +54,21 @@ extern "C" {
         lexer: *mut WastLexer,
         module: *mut WasmModule,
         error_handler: *mut ErrorHandlerBuffer,
-    ) -> ResultEnum;
+    ) -> Result;
 
     pub fn wabt_apply_names_module(
         module: *mut WasmModule,
-    ) -> ResultEnum;
+    ) -> Result;
 
     pub fn wabt_generate_names_module(
         module: *mut WasmModule,
-    ) -> ResultEnum;
+    ) -> Result;
 
     pub fn wabt_validate_module(
         lexer: *mut WastLexer,
         module: *mut WasmModule,
         error_handler: *mut ErrorHandlerBuffer,
-    ) -> ResultEnum;
+    ) -> Result;
 
     pub fn wabt_destroy_module(
         module: *mut WasmModule,
@@ -82,7 +82,7 @@ extern "C" {
         write_debug_name: c_int,
     ) -> *mut WabtWriteModuleResult;
 
-    pub fn wabt_write_module_result_get_result(result: *mut WabtWriteModuleResult) -> ResultEnum;
+    pub fn wabt_write_module_result_get_result(result: *mut WabtWriteModuleResult) -> Result;
 
     pub fn wabt_write_module_result_release_output_buffer(
         result: *mut WabtWriteModuleResult,
@@ -105,7 +105,7 @@ extern "C" {
 
     pub fn wabt_read_binary_result_get_result(
         result: *mut WabtReadBinaryResult,
-    ) -> ResultEnum;
+    ) -> Result;
 
     pub fn wabt_read_binary_result_release_module(
         result: *mut WabtReadBinaryResult,
@@ -139,13 +139,13 @@ fn parse_wasm() {
             true as c_int,
             error_handler,
         );
-        assert_eq!(wabt_read_binary_result_get_result(result), ResultEnum::Ok);
+        assert_eq!(wabt_read_binary_result_get_result(result), Result::Ok);
         let module = wabt_read_binary_result_release_module(result);
         
         wabt_destroy_read_binary_result(result);
 
         let result = wabt_write_text_module(module, 0, 0);
-        assert_eq!(wabt_write_module_result_get_result(result), ResultEnum::Ok);
+        assert_eq!(wabt_write_module_result_get_result(result), Result::Ok);
         let output_buffer = wabt_write_module_result_release_output_buffer(result);
 
         let data = wabt_output_buffer_get_data(output_buffer);
