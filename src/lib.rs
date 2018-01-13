@@ -6,6 +6,7 @@ extern crate wabt_sys;
 use std::os::raw::{c_void, c_int};
 use std::ffi::{CString, NulError};
 use std::slice;
+use std::ptr;
 
 use wabt_sys::*;
 use wabt_sys as ffi;
@@ -257,15 +258,18 @@ impl Drop for WriteModuleResult {
 
 struct Module {
     raw_module: *mut ffi::WasmModule,
+    lexer: Option<Lexer>,
 }
 
 impl Module {
-    fn parse_wat(lexer: &Lexer) -> Result<Module, Error> {
+    fn parse_wat<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Module, Error> {
+        let lexer = Lexer::new(filename, source.as_ref())?;
         let error_handler = ErrorHandler::new_text();
-        match parse_wat(lexer, &error_handler).module() {
+        match parse_wat(&lexer, &error_handler).module() {
             Ok(module) => Ok(
                 Module {
                     raw_module: module,
+                    lexer: Some(lexer),
                 }
             ),
             Err(()) => {
@@ -281,6 +285,7 @@ impl Module {
             Ok(module) => Ok(
                 Module {
                     raw_module: module,
+                    lexer: None
                 }
             ),
             Err(()) => {
@@ -288,6 +293,32 @@ impl Module {
                 Err(Error(ErrorKind::Deserialize(msg)))
             }
         }
+    }
+
+    fn resolve_names(&mut self) -> Result<(), Error> {
+        let error_handler = ErrorHandler::new_text();
+        unsafe {
+            let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
+            let result = ffi::wabt_resolve_names_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
+            if result == ResultEnum::Error {
+                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                return Err(Error(ErrorKind::ResolveNames(msg)));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate(&self) -> Result<(), Error> {
+        let error_handler = ErrorHandler::new_text();
+        unsafe {
+            let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
+            let result = wabt_validate_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
+            if result == ResultEnum::Error {
+                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                return Err(Error(ErrorKind::Validate(msg)));
+            }
+        }
+        Ok(())
     }
 
     fn write_binary(&self) -> Result<OutputBuffer, Error> {
@@ -351,25 +382,9 @@ impl Drop for Module {
 /// ```
 ///
 pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
-    let lexer = Lexer::new("test.wast", src.as_bytes())
-        .expect("filename is passed as literal and can't contain nul characters");
-    let module = Module::parse_wat(&lexer)?;
-
-    unsafe {
-        let error_handler = ErrorHandler::new_text();
-        let result = wabt_resolve_names_module(lexer.raw_lexer, module.raw_module, error_handler.raw_buffer);
-        if result == ResultEnum::Error {
-            let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-            return Err(Error(ErrorKind::ResolveNames(msg)));
-        }
-
-        let error_handler = ErrorHandler::new_text();
-        let result = wabt_validate_module(lexer.raw_lexer, module.raw_module, error_handler.raw_buffer);
-        if result == ResultEnum::Error {
-            let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-            return Err(Error(ErrorKind::Validate(msg)));
-        }
-    }
+    let mut module = Module::parse_wat("test.wast", src)?;
+    module.resolve_names()?;
+    module.validate()?;
 
     let output_buffer = module.write_binary()?;
     let result = output_buffer.data().to_vec();
@@ -402,6 +417,27 @@ pub fn wasm2wat(wasm: &[u8]) -> Result<String, Error> {
     let text = String::from_utf8(output_buffer.data().to_vec())
         .map_err(|_| Error(ErrorKind::NonUtf8Result))?;
     Ok(text)
+}
+
+#[test]
+fn module() {
+    let binary_module = wat2wasm(r#"
+(module
+  (import "foo" "bar" (func (param f32)))
+  (memory (data "hi"))
+  (type (func (param i32) (result i32)))
+  (start 1)
+  (table 0 1 anyfunc)
+  (func)
+  (func (type 1)
+    i32.const 42
+    drop)
+  (export "e" (func 1)))
+"#).unwrap();
+
+    let mut module = Module::read_binary(&binary_module).unwrap();
+    module.resolve_names().unwrap();
+    module.validate().unwrap();
 }
 
 #[test]
