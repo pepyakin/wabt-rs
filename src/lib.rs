@@ -111,24 +111,43 @@ impl Drop for ErrorHandler {
     }
 }
 
-enum ParseWatResult {
-    Ok(*mut ffi::WasmModule),
-    Error(ErrorHandler)
+struct ParseWatResult {
+    raw_result: *mut ffi::WabtParseWatResult,
 }
 
-fn parse_wat(lexer: &Lexer) -> ParseWatResult {
-    let error_handler = ErrorHandler::new_text();
-    unsafe {
-        let raw_result = ffi::wabt_parse_wat(lexer.raw_lexer, error_handler.raw_buffer);
-        let result = if ffi::wabt_parse_wat_result_get_result(raw_result) == ResultEnum::Error {
-            ParseWatResult::Error(error_handler)
+impl ParseWatResult {
+    fn is_ok(&self) -> bool {
+        unsafe {
+            ffi::wabt_parse_wat_result_get_result(self.raw_result) == ResultEnum::Ok
+        }
+    }
+
+    fn module(self) -> Result<*mut ffi::WasmModule, ()> {
+        if self.is_ok() {
+            unsafe {
+                Ok(wabt_parse_wat_result_release_module(self.raw_result))
+            }
         } else {
-            let module = wabt_parse_wat_result_release_module(raw_result);
-            ParseWatResult::Ok(module)
-        };
-        ffi::wabt_destroy_parse_wat_result(raw_result);
-        result
-    } 
+            Err(())
+        }
+    }
+}
+
+impl Drop for ParseWatResult {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_parse_wat_result(self.raw_result);
+        }
+    }
+}
+
+fn parse_wat(lexer: &Lexer, error_handler: &ErrorHandler) -> ParseWatResult {
+    let raw_result = unsafe {
+        ffi::wabt_parse_wat(lexer.raw_lexer, error_handler.raw_buffer)
+    };
+    ParseWatResult {
+        raw_result,
+    }
 }
 
 struct Module {
@@ -137,13 +156,14 @@ struct Module {
 
 impl Module {
     fn parse_wat(lexer: &Lexer) -> Result<Module, Error> {
-        match parse_wat(lexer) {
-            ParseWatResult::Ok(module) => Ok(
+        let error_handler = ErrorHandler::new_text();
+        match parse_wat(lexer, &error_handler).module() {
+            Ok(module) => Ok(
                 Module {
                     raw_module: module,
                 }
             ),
-            ParseWatResult::Error(error_handler) => {
+            Err(()) => {
                 let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
                 Err(Error(ErrorKind::Parse(msg)))
             }
