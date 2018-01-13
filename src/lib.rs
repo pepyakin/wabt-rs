@@ -42,6 +42,7 @@ struct Lexer {
 
 impl Lexer {
     fn new(filename: &str, buffer: &[u8]) -> Result<Lexer, Error> {
+        // TODO: Don't copy.
         let filename = CString::new(filename)?;
         let buffer = buffer.to_owned();
         let lexer = unsafe {
@@ -181,20 +182,6 @@ impl Drop for ReadBinaryResult {
     }
 }
 
-fn read_binary(wasm: &[u8], error_handler: &ErrorHandler) -> ReadBinaryResult {
-    let raw_result = unsafe {
-         ffi::wabt_read_binary(
-            wasm.as_ptr(), 
-            wasm.len(), 
-            true as c_int, 
-            error_handler.raw_buffer
-        )
-    };
-    ReadBinaryResult {
-        raw_result,
-    }
-}
-
 struct OutputBuffer {
     raw_buffer: *mut ffi::OutputBuffer,
 }
@@ -255,6 +242,24 @@ impl Drop for WriteModuleResult {
     }
 }
 
+struct WriteBinaryOptions {
+    log: bool,
+    canonicalize_lebs: bool,
+    relocatable: bool,
+    write_debug_names: bool,
+}
+
+impl Default for WriteBinaryOptions {
+    fn default() -> WriteBinaryOptions {
+        WriteBinaryOptions {
+            log: false,
+            canonicalize_lebs: true,
+            relocatable: false,
+            write_debug_names: false,
+        }
+    }
+}
+
 struct Module {
     raw_module: *mut ffi::WasmModule,
     lexer: Option<Lexer>,
@@ -280,7 +285,20 @@ impl Module {
 
     fn read_binary(wasm: &[u8]) -> Result<Module, Error> {
         let error_handler = ErrorHandler::new_binary();
-        match read_binary(wasm, &error_handler).module() {
+        let result = {
+            let raw_result = unsafe {
+                ffi::wabt_read_binary(
+                    wasm.as_ptr(), 
+                    wasm.len(), 
+                    true as c_int, 
+                    error_handler.raw_buffer
+                )
+            };
+            ReadBinaryResult {
+                raw_result,
+            }
+        };
+        match result.module() {
             Ok(module) => Ok(
                 Module {
                     raw_module: module,
@@ -320,12 +338,15 @@ impl Module {
         Ok(())
     }
 
-    fn write_binary(&self) -> Result<OutputBuffer, Error> {
+    fn write_binary(&self, options: &WriteBinaryOptions) -> Result<OutputBuffer, Error> {
         let result = unsafe {
             let raw_result = ffi::wabt_write_binary_module(
-                self.raw_module, 0, 1, 0, 0
+                self.raw_module,
+                options.log as c_int,
+                options.canonicalize_lebs as c_int,
+                options.relocatable as c_int,
+                options.write_debug_names as c_int,
             );
-
             WriteModuleResult { raw_result }
         };
         result
@@ -354,14 +375,118 @@ impl Drop for Module {
     }
 }
 
+/// A builder for translate wasm text source to wasm binary format.
+/// 
+/// This version allows you to tweak parameters. If you need simple version
+/// check out [`wat2wasm`].
+/// 
+/// [`wat2wasm`]: fn.wat2wasm.html
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// extern crate wabt;
+/// use wabt::Wat2Wasm;
+///
+/// fn main() {
+///     let wasm_binary = Wat2Wasm::new()
+///         .canonicalize_lebs(false)
+///         .write_debug_names(true)
+///         .convert(
+///             r#"
+///                 (module
+///                     (import "spectest" "print" (func $print (param i32)))
+///                     (func (export "main")
+///                         i32.const 1312
+///                         call $print
+///                     )
+///                 )
+///             "#
+///         ).unwrap();
+/// 
+///     # wasm_binary;
+/// }
+/// ```
+/// 
+pub struct Wat2Wasm {
+    validate: bool,
+    write_binary_options: WriteBinaryOptions,
+}
+
+impl Wat2Wasm {
+    /// Create `Wat2Wasm` with default configuration.
+    pub fn new() -> Wat2Wasm {
+        Wat2Wasm {
+            write_binary_options: WriteBinaryOptions::default(),
+            validate: true,
+        }
+    }
+
+    /// Write canonicalized LEB128 for var ints.
+    /// 
+    /// Set this to `false` to write all LEB128 sizes as 5-bytes instead of their minimal size.
+    /// `true` by default.
+    pub fn canonicalize_lebs(&mut self, canonicalize_lebs: bool) -> &mut Wat2Wasm {
+        self.write_binary_options.canonicalize_lebs = canonicalize_lebs;
+        self
+    }
+
+    /// Create a relocatable wasm binary 
+    /// 
+    /// (suitable for linking with wasm-link).
+    /// `false` by default.
+    pub fn relocatable(&mut self, relocatable: bool) -> &mut Wat2Wasm {
+        self.write_binary_options.relocatable = relocatable;
+        self
+    }
+
+    /// Write debug names to the generated binary file
+    /// 
+    /// `false` by default.
+    pub fn write_debug_names(&mut self, write_debug_names: bool) -> &mut Wat2Wasm {
+        self.write_binary_options.write_debug_names = write_debug_names;
+        self
+    }
+
+    /// Check for validity of module before writing.
+    /// 
+    /// `true` by default.
+    pub fn validate(&mut self, validate: bool) -> &mut Wat2Wasm {
+        self.validate = validate;
+        self
+    }
+
+    // TODO: Add logged version of convert
+
+    /// Perform conversion.
+    pub fn convert<S: AsRef<[u8]>>(&self, source: S) -> Result<Vec<u8>, Error> {
+        let mut module = Module::parse_wat("test.wast", source)?;
+        module.resolve_names()?;
+
+        if self.validate {
+            module.validate()?;
+        }
+
+        let output_buffer = module.write_binary(&self.write_binary_options)?;
+        let result = output_buffer.data().to_vec();
+
+        Ok(result)
+    }
+}
 
 /// Translate wasm text source to wasm binary format.
-///
+/// 
 /// If wasm source is valid wasm binary will be returned in the vector.
 /// Returned binary is validated and can be executed.
+/// 
+/// This function will make translation with default parameters. 
+/// If you want to find out what default parameters are or you want to tweak them
+/// you can use [`Wat2Wasm`]
 ///
 /// For more examples and online demo you can check online version
 /// of [wat2wasm](https://cdn.rawgit.com/WebAssembly/wabt/aae5a4b7/demo/wat2wasm/).
+/// 
+/// [`Wat2Wasm`]: struct.Wat2Wasm.html
 ///
 /// # Examples
 ///
@@ -380,15 +505,8 @@ impl Drop for Module {
 /// }
 /// ```
 ///
-pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
-    let mut module = Module::parse_wat("test.wast", src)?;
-    module.resolve_names()?;
-    module.validate()?;
-
-    let output_buffer = module.write_binary()?;
-    let result = output_buffer.data().to_vec();
-
-    Ok(result)
+pub fn wat2wasm<S: AsRef<[u8]>>(source: S) -> Result<Vec<u8>, Error> {
+    Wat2Wasm::new().convert(source)
 }
 
 /// Disassemble wasm binary to wasm text format.
