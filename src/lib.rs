@@ -150,6 +150,50 @@ fn parse_wat(lexer: &Lexer, error_handler: &ErrorHandler) -> ParseWatResult {
     }
 }
 
+struct ReadBinaryResult {
+    raw_result: *mut ffi::WabtReadBinaryResult,
+}
+
+impl ReadBinaryResult {
+    fn is_ok(&self) -> bool {
+        unsafe {
+            ffi::wabt_read_binary_result_get_result(self.raw_result) == ResultEnum::Ok
+        }
+    }
+
+    fn module(self) -> Result<*mut ffi::WasmModule, ()> {
+        if self.is_ok() {
+            unsafe {
+                Ok(wabt_read_binary_result_release_module(self.raw_result))
+            }
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl Drop for ReadBinaryResult {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_read_binary_result(self.raw_result);
+        }
+    }
+}
+
+fn read_binary(wasm: &[u8], error_handler: &ErrorHandler) -> ReadBinaryResult {
+    let raw_result = unsafe {
+         wabt_read_binary(
+            wasm.as_ptr(), 
+            wasm.len(), 
+            true as c_int, 
+            error_handler.raw_buffer
+        )
+    };
+    ReadBinaryResult {
+        raw_result,
+    }
+}
+
 struct Module {
     raw_module: *mut ffi::WasmModule,
 }
@@ -166,6 +210,21 @@ impl Module {
             Err(()) => {
                 let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
                 Err(Error(ErrorKind::Parse(msg)))
+            }
+        }
+    }
+
+    fn read_binary(wasm: &[u8]) -> Result<Module, Error> {
+        let error_handler = ErrorHandler::new_binary();
+        match read_binary(wasm, &error_handler).module() {
+            Ok(module) => Ok(
+                Module {
+                    raw_module: module,
+                }
+            ),
+            Err(()) => {
+                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                Err(Error(ErrorKind::Deserialize(msg)))
             }
         }
     }
@@ -263,17 +322,10 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
 /// ```
 ///
 pub fn wasm2wat(wasm: &[u8]) -> Result<String, Error> {
-    unsafe {
-        let error_handler = ErrorHandler::new_binary();
-        let result = wabt_read_binary(wasm.as_ptr(), wasm.len(), true as c_int, error_handler.raw_buffer);
-        if wabt_read_binary_result_get_result(result) == ResultEnum::Error {
-            let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-            return Err(Error(ErrorKind::Deserialize(msg)));
-        }
-        let module = wabt_read_binary_result_release_module(result);
-        wabt_destroy_read_binary_result(result);
+    let module = Module::read_binary(wasm)?;
 
-        let result = wabt_write_text_module(module, 0, 0);
+    unsafe {
+        let result = wabt_write_text_module(module.raw_module, 0, 0);
         if wabt_write_module_result_get_result(result) == ResultEnum::Error {
             return Err(Error(ErrorKind::WriteText));
         }
