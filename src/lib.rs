@@ -5,7 +5,6 @@ extern crate wabt_sys;
 
 use std::os::raw::{c_void, c_int};
 use std::ffi::{CString, NulError};
-use std::ptr;
 use std::slice;
 
 use wabt_sys::*;
@@ -23,6 +22,7 @@ enum ErrorKind {
     Deserialize(String),
     Parse(String),
     WriteText,
+    NonUtf8Result,
     WriteBinary,
     ResolveNames(String),
     Validate(String),
@@ -302,6 +302,18 @@ impl Module {
             .output_buffer()
             .map_err(|_| Error(ErrorKind::WriteBinary))
     }
+
+    fn write_text(&self) -> Result<OutputBuffer, Error> {
+        let result = unsafe {
+            let raw_result = ffi::wabt_write_text_module(
+                self.raw_module, 0, 0
+            );
+            WriteModuleResult { raw_result }
+        };
+        result
+            .output_buffer()
+            .map_err(|_| Error(ErrorKind::WriteText))
+    }
 }
 
 impl Drop for Module {
@@ -386,24 +398,10 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
 ///
 pub fn wasm2wat(wasm: &[u8]) -> Result<String, Error> {
     let module = Module::read_binary(wasm)?;
-
-    unsafe {
-        let result = wabt_write_text_module(module.raw_module, 0, 0);
-        if wabt_write_module_result_get_result(result) == ResultEnum::Error {
-            return Err(Error(ErrorKind::WriteText));
-        }
-        let output_buffer = wabt_write_module_result_release_output_buffer(result);
-
-        let data = wabt_output_buffer_get_data(output_buffer);
-        let size = wabt_output_buffer_get_size(output_buffer);
-
-        let mut buf: Vec<u8> = Vec::with_capacity(size);
-        ptr::copy_nonoverlapping(data as *const u8, buf.as_mut_ptr(), size);
-        buf.set_len(size);
-
-        let text = String::from_utf8(buf).unwrap();
-        Ok(text)
-    }
+    let output_buffer = module.write_text()?;
+    let text = String::from_utf8(output_buffer.data().to_vec())
+        .map_err(|_| Error(ErrorKind::NonUtf8Result))?;
+    Ok(text)
 }
 
 #[test]
