@@ -111,6 +111,55 @@ impl Drop for ErrorHandler {
     }
 }
 
+enum ParseWatResult {
+    Ok(*mut ffi::WasmModule),
+    Error(ErrorHandler)
+}
+
+fn parse_wat(lexer: &Lexer) -> ParseWatResult {
+    let error_handler = ErrorHandler::new_text();
+    unsafe {
+        let raw_result = ffi::wabt_parse_wat(lexer.raw_lexer, error_handler.raw_buffer);
+        let result = if ffi::wabt_parse_wat_result_get_result(raw_result) == ResultEnum::Error {
+            ParseWatResult::Error(error_handler)
+        } else {
+            let module = wabt_parse_wat_result_release_module(raw_result);
+            ParseWatResult::Ok(module)
+        };
+        ffi::wabt_destroy_parse_wat_result(raw_result);
+        result
+    } 
+}
+
+struct Module {
+    raw_module: *mut ffi::WasmModule,
+}
+
+impl Module {
+    fn parse_wat(lexer: &Lexer) -> Result<Module, Error> {
+        match parse_wat(lexer) {
+            ParseWatResult::Ok(module) => Ok(
+                Module {
+                    raw_module: module,
+                }
+            ),
+            ParseWatResult::Error(error_handler) => {
+                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                Err(Error(ErrorKind::Parse(msg)))
+            }
+        }
+    }
+}
+
+impl Drop for Module {
+    fn drop(&mut self) {
+        unsafe {
+            wabt_destroy_module(self.raw_module);
+        }
+    }
+}
+
+
 /// Translate wasm text source to wasm binary format.
 ///
 /// If wasm source is valid wasm binary will be returned in the vector.
@@ -139,32 +188,24 @@ impl Drop for ErrorHandler {
 pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
     let lexer = Lexer::new("test.wast", src.as_bytes())
         .expect("filename is passed as literal and can't contain nul characters");
-
+    let module = Module::parse_wat(&lexer)?;
 
     unsafe {
         let error_handler = ErrorHandler::new_text();
-        let result = wabt_parse_wat(lexer.raw_lexer, error_handler.raw_buffer);
-        if wabt_parse_wat_result_get_result(result) == ResultEnum::Error {
-            let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-            return Err(Error(ErrorKind::Parse(msg)));
-        }
-        let module = wabt_parse_wat_result_release_module(result);
-
-        let error_handler = ErrorHandler::new_text();
-        let result = wabt_resolve_names_module(lexer.raw_lexer, module, error_handler.raw_buffer);
+        let result = wabt_resolve_names_module(lexer.raw_lexer, module.raw_module, error_handler.raw_buffer);
         if result == ResultEnum::Error {
             let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
             return Err(Error(ErrorKind::ResolveNames(msg)));
         }
 
         let error_handler = ErrorHandler::new_text();
-        let result = wabt_validate_module(lexer.raw_lexer, module, error_handler.raw_buffer);
+        let result = wabt_validate_module(lexer.raw_lexer, module.raw_module, error_handler.raw_buffer);
         if result == ResultEnum::Error {
             let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
             return Err(Error(ErrorKind::Validate(msg)));
         }
 
-        let result = wabt_write_binary_module(module, 0, 1, 0, 0);
+        let result = wabt_write_binary_module(module.raw_module, 0, 1, 0, 0);
         assert!(wabt_write_module_result_get_result(result) == ResultEnum::Ok);
 
         let output_buffer = wabt_write_module_result_release_output_buffer(result);
@@ -177,7 +218,6 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
         ptr::copy_nonoverlapping(out_data, result.as_mut_ptr(), out_size);
 
         wabt_destroy_output_buffer(output_buffer);
-        wabt_destroy_module(module);
 
         Ok(result)
     }
