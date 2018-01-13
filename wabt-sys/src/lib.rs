@@ -88,6 +88,8 @@ extern "C" {
         result: *mut WabtWriteModuleResult,
     ) -> *mut OutputBuffer;
 
+    pub fn wabt_destroy_write_module_result(result: *mut WabtWriteModuleResult);
+
     pub fn wabt_output_buffer_get_data(buffer: *mut OutputBuffer) -> *const c_void;
 
     pub fn wabt_output_buffer_get_size(buffer: *mut OutputBuffer) -> usize;

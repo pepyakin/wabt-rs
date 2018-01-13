@@ -23,6 +23,7 @@ enum ErrorKind {
     Deserialize(String),
     Parse(String),
     WriteText,
+    WriteBinary,
     ResolveNames(String),
     Validate(String),
 }
@@ -194,6 +195,66 @@ fn read_binary(wasm: &[u8], error_handler: &ErrorHandler) -> ReadBinaryResult {
     }
 }
 
+struct OutputBuffer {
+    raw_buffer: *mut ffi::OutputBuffer,
+}
+
+impl OutputBuffer {
+    fn data(&self) -> &[u8] {
+        unsafe {
+            let size = wabt_output_buffer_get_size(self.raw_buffer);
+            if size == 0 {
+                return &[];
+            }
+            
+            let data = wabt_output_buffer_get_data(self.raw_buffer) as *const u8;
+
+            slice::from_raw_parts(data, size)
+        }
+    }
+}
+
+impl Drop for OutputBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_output_buffer(self.raw_buffer);
+        }
+    }
+}
+
+struct WriteModuleResult {
+    raw_result: *mut ffi::WabtWriteModuleResult,
+}
+
+impl WriteModuleResult {
+    fn is_ok(&self) -> bool {
+        unsafe {
+            ffi::wabt_write_module_result_get_result(self.raw_result) == ResultEnum::Ok
+        }
+    }
+
+    fn output_buffer(self) -> Result<OutputBuffer, ()> {
+        if self.is_ok() {
+            let raw_buffer = unsafe {
+                ffi::wabt_write_module_result_release_output_buffer(self.raw_result)
+            };
+            Ok(OutputBuffer {
+                raw_buffer,
+            })
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl Drop for WriteModuleResult {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_write_module_result(self.raw_result)
+        }
+    }
+}
+
 struct Module {
     raw_module: *mut ffi::WasmModule,
 }
@@ -227,6 +288,19 @@ impl Module {
                 Err(Error(ErrorKind::Deserialize(msg)))
             }
         }
+    }
+
+    fn write_binary(&self) -> Result<OutputBuffer, Error> {
+        let result = unsafe {
+            let raw_result = ffi::wabt_write_binary_module(
+                self.raw_module, 0, 1, 0, 0
+            );
+
+            WriteModuleResult { raw_result }
+        };
+        result
+            .output_buffer()
+            .map_err(|_| Error(ErrorKind::WriteBinary))
     }
 }
 
@@ -283,23 +357,12 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
             let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
             return Err(Error(ErrorKind::Validate(msg)));
         }
-
-        let result = wabt_write_binary_module(module.raw_module, 0, 1, 0, 0);
-        assert!(wabt_write_module_result_get_result(result) == ResultEnum::Ok);
-
-        let output_buffer = wabt_write_module_result_release_output_buffer(result);
-
-        let out_data = wabt_output_buffer_get_data(output_buffer) as *const u8;
-        let out_size = wabt_output_buffer_get_size(output_buffer);
-
-        let mut result = Vec::with_capacity(out_size);
-        result.set_len(out_size);
-        ptr::copy_nonoverlapping(out_data, result.as_mut_ptr(), out_size);
-
-        wabt_destroy_output_buffer(output_buffer);
-
-        Ok(result)
     }
+
+    let output_buffer = module.write_binary()?;
+    let result = output_buffer.data().to_vec();
+
+    Ok(result)
 }
 
 /// Disassemble wasm binary to wasm text format.
