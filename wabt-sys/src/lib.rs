@@ -28,6 +28,14 @@ extern "C" {
 
     pub fn wabt_new_binary_error_handler_buffer() -> *mut ErrorHandlerBuffer;
 
+    pub fn wabt_error_handler_buffer_get_data(
+        error_handler: *mut ErrorHandlerBuffer
+    ) -> *const c_void;
+
+    pub fn wabt_error_handler_buffer_get_size(
+        error_handler: *mut ErrorHandlerBuffer
+    ) -> usize;
+
     pub fn wabt_destroy_error_handler_buffer(error_handler: *mut ErrorHandlerBuffer);
 
     pub fn wabt_parse_wat(

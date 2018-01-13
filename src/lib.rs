@@ -6,6 +6,7 @@ extern crate wabt_sys;
 use std::os::raw::{c_void, c_int};
 use std::ffi::{CString, NulError};
 use std::ptr;
+use std::slice;
 
 use wabt_sys::*;
 use wabt_sys as ffi;
@@ -19,11 +20,11 @@ pub struct Error(ErrorKind);
 #[derive(Debug, PartialEq, Eq)]
 enum ErrorKind {
     Nul,
-    Deserialize,
-    Parse,
+    Deserialize(String),
+    Parse(String),
     WriteText,
-    ResolveNames,
-    Validate,
+    ResolveNames(String),
+    Validate(String),
 }
 
 impl From<NulError> for Error {
@@ -66,6 +67,50 @@ impl Drop for Lexer {
     }
 }
 
+struct ErrorHandler {
+    raw_buffer: *mut ErrorHandlerBuffer,
+}
+
+impl ErrorHandler {
+    fn new_binary() -> ErrorHandler {
+        let raw_buffer = unsafe {
+            ffi::wabt_new_binary_error_handler_buffer()
+        };
+        ErrorHandler {
+            raw_buffer,
+        }
+    }
+
+    fn new_text() -> ErrorHandler {
+        let raw_buffer = unsafe {
+            ffi::wabt_new_text_error_handler_buffer()
+        };
+        ErrorHandler {
+            raw_buffer,
+        }
+    }
+
+    fn raw_message(&self) -> &[u8] {
+        unsafe {
+            let size = ffi::wabt_error_handler_buffer_get_size(self.raw_buffer);
+            if size == 0 {
+                return &[];
+            }
+
+            let data = ffi::wabt_error_handler_buffer_get_data(self.raw_buffer);
+            slice::from_raw_parts(data as *const u8, size)
+        }
+    }
+}
+
+impl Drop for ErrorHandler {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_error_handler_buffer(self.raw_buffer);
+        }
+    }
+}
+
 /// Translate wasm text source to wasm binary format.
 ///
 /// If wasm source is valid wasm binary will be returned in the vector.
@@ -95,23 +140,28 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
     let lexer = Lexer::new("test.wast", src.as_bytes())
         .expect("filename is passed as literal and can't contain nul characters");
 
-    unsafe {
-        let error_handler = wabt_new_text_error_handler_buffer();
 
-        let result = wabt_parse_wat(lexer.raw_lexer, error_handler);
+    unsafe {
+        let error_handler = ErrorHandler::new_text();
+        let result = wabt_parse_wat(lexer.raw_lexer, error_handler.raw_buffer);
         if wabt_parse_wat_result_get_result(result) == ResultEnum::Error {
-            return Err(Error(ErrorKind::Parse));
+            let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+            return Err(Error(ErrorKind::Parse(msg)));
         }
         let module = wabt_parse_wat_result_release_module(result);
 
-        let result = wabt_resolve_names_module(lexer.raw_lexer, module, error_handler);
+        let error_handler = ErrorHandler::new_text();
+        let result = wabt_resolve_names_module(lexer.raw_lexer, module, error_handler.raw_buffer);
         if result == ResultEnum::Error {
-            return Err(Error(ErrorKind::ResolveNames));
+            let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+            return Err(Error(ErrorKind::ResolveNames(msg)));
         }
 
-        let result = wabt_validate_module(lexer.raw_lexer, module, error_handler);
+        let error_handler = ErrorHandler::new_text();
+        let result = wabt_validate_module(lexer.raw_lexer, module, error_handler.raw_buffer);
         if result == ResultEnum::Error {
-            return Err(Error(ErrorKind::Validate));
+            let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+            return Err(Error(ErrorKind::Validate(msg)));
         }
 
         let result = wabt_write_binary_module(module, 0, 1, 0, 0);
@@ -128,7 +178,6 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
 
         wabt_destroy_output_buffer(output_buffer);
         wabt_destroy_module(module);
-        wabt_destroy_error_handler_buffer(error_handler);
 
         Ok(result)
     }
@@ -155,10 +204,11 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
 ///
 pub fn wasm2wat(wasm: &[u8]) -> Result<String, Error> {
     unsafe {
-        let error_handler = wabt_new_binary_error_handler_buffer();
-        let result = wabt_read_binary(wasm.as_ptr(), wasm.len(), true as c_int, error_handler);
+        let error_handler = ErrorHandler::new_binary();
+        let result = wabt_read_binary(wasm.as_ptr(), wasm.len(), true as c_int, error_handler.raw_buffer);
         if wabt_read_binary_result_get_result(result) == ResultEnum::Error {
-            return Err(Error(ErrorKind::Deserialize));
+            let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+            return Err(Error(ErrorKind::Deserialize(msg)));
         }
         let module = wabt_read_binary_result_release_module(result);
         wabt_destroy_read_binary_result(result);
@@ -197,7 +247,11 @@ fn test_wat2wasm() {
         &[0, 97, 115, 109, 1, 0, 0, 0]
     );
 
-    assert_eq!(wat2wasm("(modu"), Err(Error(ErrorKind::Parse)));
+    assert_eq!(wat2wasm("(modu"), Err(Error(ErrorKind::Parse(
+r#"test.wast:1:2: error: unexpected token "modu", expected a module field or a module.
+(modu
+ ^^^^
+"#.to_string()))));
 }
 
 #[test]
@@ -214,7 +268,9 @@ fn test_wasm2wat() {
         wasm2wat(&[
             0, 97, 115, 109, // \0ASM - magic
         ]),
-        Err(Error(ErrorKind::Deserialize)),
+        Err(Error(ErrorKind::Deserialize(
+            "0000004: error: unable to read uint32_t: version\n".to_owned()
+        ))),
     );
 }
 
