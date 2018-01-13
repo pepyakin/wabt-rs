@@ -4,10 +4,11 @@
 extern crate wabt_sys;
 
 use std::os::raw::{c_void, c_int};
-use std::ffi::CString;
+use std::ffi::{CString, NulError};
 use std::ptr;
 
 use wabt_sys::*;
+use wabt_sys as ffi;
 
 /// A structure to represent errors coming out from wabt.
 ///
@@ -17,11 +18,52 @@ pub struct Error(ErrorKind);
 
 #[derive(Debug, PartialEq, Eq)]
 enum ErrorKind {
+    Nul,
     Deserialize,
     Parse,
     WriteText,
     ResolveNames,
     Validate,
+}
+
+impl From<NulError> for Error {
+    fn from(_e: NulError) -> Error {
+        Error(ErrorKind::Nul)
+    }
+}
+
+struct Lexer {
+    _filename: CString,
+    _buffer: Vec<u8>,
+    raw_lexer: *mut ffi::WastLexer,
+}
+
+impl Lexer {
+    fn new(filename: &str, buffer: &[u8]) -> Result<Lexer, Error> {
+        let filename = CString::new(filename)?;
+        let buffer = buffer.to_owned();
+        let lexer = unsafe {
+            ffi::wabt_new_wast_buffer_lexer(
+                filename.as_ptr(),
+                buffer.as_ptr() as *const c_void,
+                buffer.len(),
+            )
+        };
+
+        Ok(Lexer {
+            _filename: filename,
+            _buffer: buffer,
+            raw_lexer: lexer,
+        })
+    }
+}
+
+impl Drop for Lexer {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_wast_lexer(self.raw_lexer);
+        }
+    }
 }
 
 /// Translate wasm text source to wasm binary format.
@@ -50,29 +92,24 @@ enum ErrorKind {
 /// ```
 ///
 pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
-    let filename = CString::new("test.wast").unwrap();
-    let data = CString::new(src).unwrap();
+    let lexer = Lexer::new("test.wast", src.as_bytes())
+        .expect("filename is passed as literal and can't contain nul characters");
 
     unsafe {
         let error_handler = wabt_new_text_error_handler_buffer();
-        let lexer = wabt_new_wast_buffer_lexer(
-            filename.as_ptr(),
-            data.as_ptr() as *const c_void,
-            src.len(),
-        );
 
-        let result = wabt_parse_wat(lexer, error_handler);
+        let result = wabt_parse_wat(lexer.raw_lexer, error_handler);
         if wabt_parse_wat_result_get_result(result) == ResultEnum::Error {
             return Err(Error(ErrorKind::Parse));
         }
         let module = wabt_parse_wat_result_release_module(result);
 
-        let result = wabt_resolve_names_module(lexer, module, error_handler);
+        let result = wabt_resolve_names_module(lexer.raw_lexer, module, error_handler);
         if result == ResultEnum::Error {
             return Err(Error(ErrorKind::ResolveNames));
         }
 
-        let result = wabt_validate_module(lexer, module, error_handler);
+        let result = wabt_validate_module(lexer.raw_lexer, module, error_handler);
         if result == ResultEnum::Error {
             return Err(Error(ErrorKind::Validate));
         }
@@ -91,7 +128,6 @@ pub fn wat2wasm(src: &str) -> Result<Vec<u8>, Error> {
 
         wabt_destroy_output_buffer(output_buffer);
         wabt_destroy_module(module);
-        wabt_destroy_wast_lexer(lexer);
         wabt_destroy_error_handler_buffer(error_handler);
 
         Ok(result)
