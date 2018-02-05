@@ -296,7 +296,8 @@ impl Default for WriteTextOptions {
     }
 }
 
-struct ReadBinaryOptions {
+/// Options for reading read binary.
+pub struct ReadBinaryOptions {
     read_debug_names: bool,
 }
 
@@ -308,13 +309,15 @@ impl Default for ReadBinaryOptions {
     }
 }
 
-struct Module {
+/// WebAssembly module.
+pub struct Module {
     raw_module: *mut ffi::WasmModule,
     lexer: Option<Lexer>,
 }
 
 impl Module {
-    fn parse_wat<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Module, Error> {
+    /// Parse source in WebAssembly text format.
+    pub fn parse_wat<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Module, Error> {
         let lexer = Lexer::new(filename, source.as_ref())?;
         let error_handler = ErrorHandler::new_text();
         match parse_wat(&lexer, &error_handler).take_module() {
@@ -330,8 +333,14 @@ impl Module {
             }
         }
     }
-
-    fn read_binary<S: AsRef<[u8]>>(wasm: S, options: &ReadBinaryOptions) -> Result<Module, Error> {
+    
+    /// Read WebAssembly binary.
+    /// 
+    /// `read_binary` doesn't do any validation. If you want to validate, you can the module you can
+    /// call [`validate`].
+    /// 
+    /// [`validate`]: #method.validate
+    pub fn read_binary<S: AsRef<[u8]>>(wasm: S, options: &ReadBinaryOptions) -> Result<Module, Error> {
         let error_handler = ErrorHandler::new_binary();
         let result = {
             let wasm = wasm.as_ref();
@@ -374,7 +383,8 @@ impl Module {
         Ok(())
     }
 
-    fn validate(&self) -> Result<(), Error> {
+    /// Validate the module.
+    pub fn validate(&self) -> Result<(), Error> {
         let error_handler = ErrorHandler::new_text();
         unsafe {
             let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
