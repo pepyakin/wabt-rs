@@ -11,3 +11,4 @@ keywords = ["tools", "webassembly", "wasm"]
 
 [build-dependencies]
 cmake = "0.1.25"
+cc = "1.0.4"
