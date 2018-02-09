@@ -4,13 +4,21 @@
 #![deny(missing_docs)]
 
 extern crate wabt_sys;
+extern crate serde;
+extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
+extern crate tempdir;
 
 use std::os::raw::{c_void, c_int};
 use std::ffi::{CString, NulError};
+use std::path::Path;
 use std::slice;
 use std::ptr;
 
 use wabt_sys as ffi;
+
+pub mod spec;
 
 /// A structure to represent errors coming out from wabt.
 ///
@@ -306,6 +314,107 @@ impl Default for ReadBinaryOptions {
         ReadBinaryOptions {
             read_debug_names: false,
         }
+    }
+}
+
+struct ParseWastResult {
+    raw_result: *mut ffi::WabtParseWastResult,
+}
+
+impl ParseWastResult {
+    fn is_ok(&self) -> bool {
+        unsafe {
+            ffi::wabt_parse_wast_result_get_result(self.raw_result) == ffi::Result::Ok
+        }
+    }
+
+    fn take_script(self) -> Result<*mut ffi::Script, ()> {
+        if self.is_ok() {
+            unsafe {
+                Ok(ffi::wabt_parse_wast_result_release_module(self.raw_result))
+            }
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl Drop for ParseWastResult {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_parse_wast_result(self.raw_result);
+        }
+    }
+}
+
+fn parse_wast(lexer: &Lexer, error_handler: &ErrorHandler) -> ParseWastResult {
+    let raw_result = unsafe {
+        ffi::wabt_parse_wast(lexer.raw_lexer, error_handler.raw_buffer)
+    };
+    ParseWastResult {
+        raw_result,
+    }
+}
+
+struct Script {
+    raw_script: *mut ffi::Script,
+    lexer: Lexer,
+}
+
+impl Script {
+    fn parse<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Script, Error> {
+        let lexer = Lexer::new(filename, source.as_ref())?;
+        let error_handler = ErrorHandler::new_text();
+        match parse_wast(&lexer, &error_handler).take_script() {
+            Ok(raw_script) => Ok(
+                Script {
+                    raw_script,
+                    lexer,
+                }
+            ),
+            Err(()) => {
+                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                Err(Error(ErrorKind::Parse(msg)))
+            }
+        }
+    }
+
+    fn validate(&self) -> Result<(), Error> {
+        let error_handler = ErrorHandler::new_text();
+        unsafe {
+            let result = ffi::wabt_validate_script(
+                self.lexer.raw_lexer,
+                self.raw_script,
+                error_handler.raw_buffer,
+            );
+            if result == ffi::Result::Error {
+                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                return Err(Error(ErrorKind::Validate(msg)));
+            }
+        }
+        Ok(())
+    }
+
+    fn write_binaries(&self, source: &str, out: &Path) -> Result<(), Error> {
+        let source_cstr = CString::new(source)?;
+        let out_cstr = CString::new(out.to_str().ok_or_else(|| Error(ErrorKind::Nul))?)?;
+
+        let result = unsafe {
+            let raw_result = ffi::wabt_write_binary_spec_script(
+                self.raw_script,
+                source_cstr.as_ptr(),
+                out_cstr.as_ptr(),
+                0,
+                1,
+                0,
+                0,
+            );
+            WriteModuleResult { raw_result }
+        };
+        result
+            .take_wabt_buf()
+            .map(|_| ())
+            .map_err(|_| Error(ErrorKind::WriteBinary))
     }
 }
 
