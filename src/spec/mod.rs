@@ -32,7 +32,7 @@ use tempdir;
 
 use super::{Error as WabtError, Script};
 
-mod test;
+mod json;
 
 /// Error that can happen when parsing spec or executing spec tests.
 #[derive(Debug)]
@@ -226,7 +226,7 @@ fn read_file<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, ::std::io::Error> {
     Ok(buf)
 }
 
-fn runtime_value(test_val: &test::RuntimeValue) -> Value {
+fn runtime_value(test_val: &json::RuntimeValue) -> Value {
     match test_val.value_type.as_ref() {
         "i32" => {
             let unsigned: u32 = test_val.value.parse().expect("Literal parse error");
@@ -248,13 +248,13 @@ fn runtime_value(test_val: &test::RuntimeValue) -> Value {
     }
 }
 
-fn runtime_values(test_vals: &[test::RuntimeValue]) -> Vec<Value> {
+fn runtime_values(test_vals: &[json::RuntimeValue]) -> Vec<Value> {
     test_vals.iter().map(runtime_value).collect::<Vec<Value>>()
 }
 
-fn parse_action(test_action: &test::Action) -> Action {
+fn parse_action(test_action: &json::Action) -> Action {
     match *test_action {
-        test::Action::Invoke {
+        json::Action::Invoke {
             ref module,
             ref field,
             ref args,
@@ -263,7 +263,7 @@ fn parse_action(test_action: &test::Action) -> Action {
             field: field.to_owned(),
             args: runtime_values(args),
         },
-        test::Action::Get {
+        json::Action::Get {
             ref module,
             ref field,
         } => Action::Get {
@@ -327,7 +327,7 @@ pub fn run_spec<P: AsRef<Path>, E: Debug, V: Visitor<E>>(
     wast2json(path, test_filename, &json_spec_path)?;
 
     let mut f = File::open(json_spec_path).expect("Failed to load json file");
-    let spec: test::Spec =
+    let spec: json::Spec =
         serde_json::from_reader(&mut f).expect("Failed to deserialize JSON file");
     visit_spec(spec, outdir, visitor)?;
 
@@ -335,11 +335,11 @@ pub fn run_spec<P: AsRef<Path>, E: Debug, V: Visitor<E>>(
 }
 
 fn visit_spec<E: Debug, V: Visitor<E>>(
-    spec: test::Spec,
+    spec: json::Spec,
     root: &Path,
     v: &mut V,
 ) -> Result<(), Error<E>> {
-    let test::Spec {
+    let json::Spec {
         source_filename,
         commands,
     } = spec;
@@ -347,7 +347,7 @@ fn visit_spec<E: Debug, V: Visitor<E>>(
 
     for command in commands {
         match command {
-            test::Command::Module {
+            json::Command::Module {
                 line,
                 name,
                 filename,
@@ -357,7 +357,7 @@ fn visit_spec<E: Debug, V: Visitor<E>>(
                 let wasm = read_file(module_path)?;
                 v.module(line, &wasm, name).map_err(Error::User)?;
             }
-            test::Command::AssertReturn {
+            json::Command::AssertReturn {
                 line,
                 action,
                 expected,
@@ -367,25 +367,25 @@ fn visit_spec<E: Debug, V: Visitor<E>>(
                 v.assert_return(line, &action, &expected)
                     .map_err(Error::User)?;
             }
-            test::Command::AssertReturnCanonicalNan { line, action } => {
+            json::Command::AssertReturnCanonicalNan { line, action } => {
                 let action = parse_action(&action);
                 v.assert_return_canonical_nan(line, &action)
                     .map_err(Error::User)?;
             }
-            test::Command::AssertReturnArithmeticNan { line, action } => {
+            json::Command::AssertReturnArithmeticNan { line, action } => {
                 let action = parse_action(&action);
                 v.assert_return_arithmetic_nan(line, &action)
                     .map_err(Error::User)?;
             }
-            test::Command::AssertExhaustion { line, action } => {
+            json::Command::AssertExhaustion { line, action } => {
                 let action = parse_action(&action);
                 v.assert_exhaustion(line, &action).map_err(Error::User)?;
             }
-            test::Command::AssertTrap { line, action, text } => {
+            json::Command::AssertTrap { line, action, text } => {
                 let action = parse_action(&action);
                 v.assert_trap(line, &action, &text).map_err(Error::User)?;
             }
-            test::Command::AssertInvalid {
+            json::Command::AssertInvalid {
                 line,
                 filename,
                 text,
@@ -395,7 +395,7 @@ fn visit_spec<E: Debug, V: Visitor<E>>(
                 let wasm = read_file(module_path)?;
                 v.assert_invalid(line, &wasm, &text).map_err(Error::User)?;
             }
-            test::Command::AssertMalformed {
+            json::Command::AssertMalformed {
                 line,
                 filename,
                 text,
@@ -405,7 +405,7 @@ fn visit_spec<E: Debug, V: Visitor<E>>(
                 let wasm = read_file(module_path)?;
                 v.assert_malformed(line, &wasm, &text).map_err(Error::User)?;
             }
-            test::Command::AssertUnlinkable {
+            json::Command::AssertUnlinkable {
                 line,
                 filename,
                 text,
@@ -416,7 +416,7 @@ fn visit_spec<E: Debug, V: Visitor<E>>(
                 v.assert_unlinkable(line, &wasm, &text)
                     .map_err(Error::User)?;
             }
-            test::Command::AssertUninstantiable {
+            json::Command::AssertUninstantiable {
                 line,
                 filename,
                 text,
@@ -427,7 +427,7 @@ fn visit_spec<E: Debug, V: Visitor<E>>(
                 v.assert_uninstantiable(line, &wasm, &text)
                     .map_err(Error::User)?;
             }
-            test::Command::Register {
+            json::Command::Register {
                 line,
                 name,
                 as_name,
@@ -435,7 +435,7 @@ fn visit_spec<E: Debug, V: Visitor<E>>(
                 v.register(line, name.as_ref().map(|n| n.as_ref()), &as_name)
                     .map_err(Error::User)?;
             }
-            test::Command::Action { line, action } => {
+            json::Command::Action { line, action } => {
                 let action = parse_action(&action);
                 v.perform_action(line, &action).map_err(Error::User)?;
             }
