@@ -1,4 +1,5 @@
 //! Module for parsing spec testsuite scripts.
+//!
 
 use std::fs::File;
 use std::ffi::OsStr;
@@ -266,6 +267,7 @@ fn parse_action(test_action: &json::Action) -> Action {
 fn wast2json<E>(path: &Path, test_filename: &str, json_spec_path: &Path) -> Result<(), Error<E>> {
     let source = read_file(path)?;
     let script = Script::parse(test_filename, source)?;
+    script.resolve_names()?;
     script.validate()?;
     script.write_binaries(test_filename, &json_spec_path)?;
     Ok(())

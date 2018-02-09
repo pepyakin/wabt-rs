@@ -379,6 +379,22 @@ impl Script {
         }
     }
 
+    fn resolve_names(&self) -> Result<(), Error> {
+        let error_handler = ErrorHandler::new_text();
+        unsafe {
+            let result = ffi::wabt_resolve_names_script(
+                self.lexer.raw_lexer,
+                self.raw_script, 
+                error_handler.raw_buffer
+            );
+            if result == ffi::Result::Error {
+                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                return Err(Error(ErrorKind::ResolveNames(msg)));
+            }
+        }
+        Ok(())
+    }
+
     fn validate(&self) -> Result<(), Error> {
         let error_handler = ErrorHandler::new_text();
         unsafe {

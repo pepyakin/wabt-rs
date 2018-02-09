@@ -103,6 +103,12 @@ extern "C" {
 
     pub fn wabt_destroy_output_buffer(buffer: *mut OutputBuffer);
 
+    pub fn wabt_resolve_names_script(
+        lexer: *mut WastLexer,
+        script: *mut Script,
+        error_handler: *mut ErrorHandlerBuffer,
+    ) -> Result;
+
     pub fn wabt_validate_script(
         lexer: *mut WastLexer,
         script: *mut Script,
