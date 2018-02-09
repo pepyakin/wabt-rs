@@ -1,25 +1,4 @@
 //! Module for parsing spec testsuite scripts.
-//!
-//! ```rust
-//! use wabt::spec::{Visitor, run_spec};
-//!
-//! struct DummyVisitor;
-//! impl Visitor<()> for DummyVisitor {
-//!     fn begin_spec(&mut self, source_filename: &str) -> Result<(), ()> {
-//!         println!("spec(source_filename={})", source_filename);
-//!         Ok(())
-//!     }
-//!     fn module(&mut self, line: u64, _wasm: &[u8], name: Option<String>) -> Result<(), ()> {
-//!         println!("module(line={}, wasm=..., name={:?})", line, name);
-//!         Ok(())
-//!     }
-//! }
-//! # let spec_path = "/Users/pepyakin/dev/parity/wasmi/spec/wabt/third_party/testsuite/address.wast";
-//! run_spec(
-//!     spec_path, // <- provide this path.
-//!     &mut DummyVisitor,
-//! ).unwrap();
-//! ```
 
 use std::fs::File;
 use std::ffi::OsStr;
