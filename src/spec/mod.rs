@@ -49,6 +49,7 @@ impl<E> From<io::Error> for Error<E> {
 }
 
 /// Wasm value
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub enum Value {
     /// 32-bit signed or unsigned integer.
     I32(i32),
@@ -231,6 +232,16 @@ fn runtime_values(test_vals: &[json::RuntimeValue]) -> Vec<Value> {
     test_vals.iter().map(runtime_value).collect::<Vec<Value>>()
 }
 
+// Convert json string to correct rust UTF8 string.
+// The reason is that, for example, rust character "\u{FEEF}" (3-byte UTF8 BOM) is represented as "\u00ef\u00bb\u00bf" in spec json.
+// It is incorrect. Correct BOM representation in json is "\uFEFF" => we need to do a double utf8-parse here.
+// This conversion is incorrect in general case (casting char to u8)!!!
+fn jstring_to_rstring(jstring: &str) -> String {
+    let jstring_chars: Vec<u8> = jstring.chars().map(|c| c as u8).collect();
+    let rstring = String::from_utf8(jstring_chars).unwrap();
+    rstring
+}
+
 fn parse_action(test_action: &json::Action) -> Action {
     match *test_action {
         json::Action::Invoke {
@@ -239,7 +250,7 @@ fn parse_action(test_action: &json::Action) -> Action {
             ref args,
         } => Action::Invoke {
             module: module.to_owned(),
-            field: field.to_owned(),
+            field: jstring_to_rstring(field),
             args: runtime_values(args),
         },
         json::Action::Get {
@@ -247,7 +258,7 @@ fn parse_action(test_action: &json::Action) -> Action {
             ref field,
         } => Action::Get {
             module: module.to_owned(),
-            field: field.to_owned(),
+            field: jstring_to_rstring(field),
         },
     }
 }
