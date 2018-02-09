@@ -3,10 +3,12 @@ use std::os::raw::{c_char, c_int, c_void};
 pub enum WastLexer {}
 pub enum ErrorHandlerBuffer {}
 pub enum WabtParseWatResult {}
+pub enum WabtParseWastResult {}
 pub enum WasmModule {}
 pub enum WabtWriteModuleResult {}
 pub enum WabtReadBinaryResult {}
 pub enum OutputBuffer {}
+pub enum Script {}
 
 #[derive(Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -42,6 +44,11 @@ extern "C" {
         lexer: *mut WastLexer,
         error_handler: *mut ErrorHandlerBuffer,
     ) -> *mut WabtParseWatResult;
+
+    pub fn wabt_parse_wast(
+        lexer: *mut WastLexer,
+        error_handler: *mut ErrorHandlerBuffer,
+    ) -> *mut WabtParseWastResult;
 
     pub fn wabt_parse_wat_result_get_result(result: *mut WabtParseWatResult) -> Result;
 
@@ -96,12 +103,40 @@ extern "C" {
 
     pub fn wabt_destroy_output_buffer(buffer: *mut OutputBuffer);
 
+    pub fn wabt_validate_script(
+        lexer: *mut WastLexer,
+        script: *mut Script,
+        error_handler: *mut ErrorHandlerBuffer,
+    ) -> Result;
+
+    pub fn wabt_write_binary_spec_script(
+        script: *mut Script,
+        source_filename: *const c_char,
+        out_filename: *const c_char,
+        log: c_int,
+        canonicalize_lebs: c_int,
+        relocatable: c_int,
+        write_debug_name: c_int,
+    ) -> *mut WabtWriteModuleResult;
+
     pub fn wabt_read_binary(
         data: *const u8,
         size: usize,
         read_debug_names: c_int,
         error_handler: *mut ErrorHandlerBuffer,
     ) -> *mut WabtReadBinaryResult;
+
+    pub fn wabt_parse_wast_result_get_result(
+        result: *mut WabtParseWastResult,
+    ) -> Result;
+
+    pub fn wabt_parse_wast_result_release_module(
+        result: *mut WabtParseWastResult,
+    ) -> *mut Script;
+
+    pub fn wabt_destroy_parse_wast_result(
+        result: *mut WabtParseWastResult,
+    );
 
     pub fn wabt_read_binary_result_get_result(
         result: *mut WabtReadBinaryResult,
