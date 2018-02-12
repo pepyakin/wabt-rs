@@ -15,16 +15,40 @@ use std::ffi::{CString, NulError};
 use std::path::Path;
 use std::slice;
 use std::ptr;
+use std::error;
+use std::fmt;
 
 use wabt_sys as ffi;
 
-pub mod spec;
+pub mod script;
 
 /// A structure to represent errors coming out from wabt.
 ///
 /// Actual errors are not yet published.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error(ErrorKind);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // TODO: A better formatting
+        write!(f, "error: {:?}", self)
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match self.0 {
+            ErrorKind::Nul => "string contained nul-byte",
+            ErrorKind::Deserialize(_) => "failed to deserialize",
+            ErrorKind::Parse(_) => "failed to parse",
+            ErrorKind::WriteText => "failed to write text",
+            ErrorKind::NonUtf8Result => "result is not a valid utf8",
+            ErrorKind::WriteBinary => "failed to write binary",
+            ErrorKind::ResolveNames(_) => "failed to resolve names",
+            ErrorKind::Validate(_) => "failed to validate",
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 enum ErrorKind {
