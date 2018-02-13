@@ -11,7 +11,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-wabt = "0.1"
+wabt = "0.2"
 ```
 
 ## Example
