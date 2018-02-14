@@ -27,3 +27,7 @@ before_script:
   - cargo --version
 script:
   - cargo test --all --verbose
+branches:
+  only:
+  - staging
+  - trying
