@@ -11,6 +11,8 @@ addons:
     - g++-6
     - cmake
 env:
+  global:
+    - RUST_BACKTRACE=1
   matrix:
     - CC=/usr/bin/gcc-6 CXX=/usr/bin/g++-6
     - CC=clang CXX=clang++
