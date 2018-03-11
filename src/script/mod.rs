@@ -162,48 +162,12 @@ pub enum Value {
 
 impl Value {
     fn decode_f32(val: u32) -> Self {
-        Value::F32(f32_from_bits(val))
+        Value::F32(f32::from_bits(val))
     }
 
     fn decode_f64(val: u64) -> Self {
-        Value::F64(f64_from_bits(val))
+        Value::F64(f64::from_bits(val))
     }
-}
-
-// Convert u32 to f32 safely, masking out sNAN
-fn f32_from_bits(mut v: u32) -> f32 {
-    const EXP_MASK: u32 = 0x7F800000;
-    const QNAN_MASK: u32 = 0x00400000;
-    const FRACT_MASK: u32 = 0x007FFFFF;
-
-    if v & EXP_MASK == EXP_MASK && v & FRACT_MASK != 0 {
-        // If we have a NaN value, we
-        // convert signaling NaN values to quiet NaN
-        // by setting the the highest bit of the fraction
-        // TODO: remove when https://github.com/BurntSushi/byteorder/issues/71 closed.
-        // or `f32::from_bits` stabilized.
-        v |= QNAN_MASK;
-    }
-
-    unsafe { ::std::mem::transmute(v) }
-}
-
-// Convert u64 to f64 safely, masking out sNAN
-fn f64_from_bits(mut v: u64) -> f64 {
-    const EXP_MASK: u64 = 0x7FF0000000000000;
-    const QNAN_MASK: u64 = 0x0001000000000000;
-    const FRACT_MASK: u64 = 0x000FFFFFFFFFFFFF;
-
-    if v & EXP_MASK == EXP_MASK && v & FRACT_MASK != 0 {
-        // If we have a NaN value, we
-        // convert signaling NaN values to quiet NaN
-        // by setting the the highest bit of the fraction
-        // TODO: remove when https://github.com/BurntSushi/byteorder/issues/71 closed.
-        // or `f64::from_bits` stabilized.
-        v |= QNAN_MASK;
-    }
-
-    unsafe { ::std::mem::transmute(v) }
 }
 
 /// Description of action that should be performed on a wasm module.
