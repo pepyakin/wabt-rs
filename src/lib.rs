@@ -21,6 +21,7 @@ use std::fmt;
 use wabt_sys as ffi;
 
 pub mod script;
+pub mod interp;
 
 /// A structure to represent errors coming out from wabt.
 ///
@@ -136,6 +137,10 @@ impl ErrorHandler {
             let data = ffi::wabt_error_handler_buffer_get_data(self.raw_buffer);
             slice::from_raw_parts(data as *const u8, size)
         }
+    }
+
+    fn to_string(&self) -> String {
+        String::from_utf8_lossy(self.raw_message()).to_string()
     }
 }
 
@@ -397,8 +402,7 @@ impl Script {
                 }
             ),
             Err(()) => {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-                Err(Error(ErrorKind::Parse(msg)))
+                Err(Error(ErrorKind::Parse(error_handler.to_string())))
             }
         }
     }
@@ -412,8 +416,7 @@ impl Script {
                 error_handler.raw_buffer
             );
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-                return Err(Error(ErrorKind::ResolveNames(msg)));
+                return Err(Error(ErrorKind::ResolveNames(error_handler.to_string())));
             }
         }
         Ok(())
@@ -428,8 +431,7 @@ impl Script {
                 error_handler.raw_buffer,
             );
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-                return Err(Error(ErrorKind::Validate(msg)));
+                return Err(Error(ErrorKind::Validate(error_handler.to_string())));
             }
         }
         Ok(())
@@ -477,8 +479,7 @@ impl Module {
                 }
             ),
             Err(()) => {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-                Err(Error(ErrorKind::Parse(msg)))
+                Err(Error(ErrorKind::Parse(error_handler.to_string())))
             }
         }
     }
@@ -513,8 +514,7 @@ impl Module {
                 }
             ),
             Err(()) => {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-                Err(Error(ErrorKind::Deserialize(msg)))
+                Err(Error(ErrorKind::Deserialize(error_handler.to_string())))
             }
         }
     }
@@ -525,8 +525,7 @@ impl Module {
             let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
             let result = ffi::wabt_resolve_names_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-                return Err(Error(ErrorKind::ResolveNames(msg)));
+                return Err(Error(ErrorKind::ResolveNames(error_handler.to_string())));
             }
         }
         Ok(())
@@ -539,8 +538,7 @@ impl Module {
             let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
             let result = ffi::wabt_validate_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
-                return Err(Error(ErrorKind::Validate(msg)));
+                return Err(Error(ErrorKind::Validate(error_handler.to_string())));
             }
         }
         Ok(())
