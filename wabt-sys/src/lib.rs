@@ -9,12 +9,38 @@ pub enum WabtWriteModuleResult {}
 pub enum WabtReadBinaryResult {}
 pub enum OutputBuffer {}
 pub enum Script {}
+pub enum Environment {}
+pub enum Executor {}
+pub enum DefinedModule {}
+pub enum ExecResult {}
 
 #[derive(Debug, PartialEq, Eq)]
 #[repr(C)]
 pub enum Result {
     Ok,
     Error,
+}
+
+pub type ValueType = i32;
+pub const VALUETYPE_I32: ValueType = -1;
+pub const VALUETYPE_I64: ValueType = -2;
+pub const VALUETYPE_F32: ValueType = -3;
+pub const VALUETYPE_F64: ValueType = -4;
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct TypedValue {
+    pub type_: ValueType,
+    pub value: UntypedValue,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union UntypedValue {
+    pub i32: u32,
+    pub i64: u64,
+    pub f32_bits: u32,
+    pub f64_bits: u64,
 }
 
 extern "C" {
@@ -161,6 +187,40 @@ extern "C" {
         fold_exprs: c_int,
         inline_export: c_int,
     ) -> *mut WabtWriteModuleResult;
+
+    pub fn wabt_interp_create_env() -> *mut Environment;
+
+    pub fn wabt_interp_destroy_env(env: *mut Environment);
+
+    pub fn wabt_interp_read_binary(
+        env: *mut Environment,
+        data: *const u8,
+        size: usize,
+        read_debug_names: c_int,
+        error_handler: *mut ErrorHandlerBuffer,
+        module: *mut *mut DefinedModule,
+    ) -> Result;
+
+    pub fn wabt_interp_create_executor(env: *mut Environment) -> *mut Executor;
+
+    pub fn wabt_interp_destroy_executor(exec: *mut Executor);
+
+    pub fn wabt_interp_executor_run_export(
+        exec: *mut Executor,
+        module: *mut DefinedModule,
+        export_name_data: *const u8,
+        export_name_len: usize,
+        args_data: *const TypedValue,
+        args_len: usize,
+    ) -> *mut ExecResult;
+
+    pub fn wabt_interp_exec_result_get_result(result: *mut ExecResult) -> Result;
+    
+    pub fn wabt_interp_exec_result_get_return_size(result: *mut ExecResult) -> usize;
+
+    pub fn wabt_interp_exec_result_get_return(result: *mut ExecResult, index: usize) -> TypedValue;
+
+    pub fn wabt_interp_destroy_exec_result(result: *mut ExecResult);
 }
 
 #[test]
