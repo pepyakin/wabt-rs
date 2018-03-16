@@ -4,6 +4,12 @@ extern crate cc;
 use std::env;
 
 fn main() {
+    // Re-run the build script if:
+    // - the directory which contains `wabt` is changed
+    // - wabt_shim.cc is changed.
+    println!("cargo:rerun-if-changed=wabt");
+    println!("cargo:rerun-if-changed=wabt_shim.cc");
+
     let dst = cmake::Config::new("wabt")
         .define("BUILD_TESTS", "OFF")
         .build();
