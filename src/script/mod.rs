@@ -147,32 +147,56 @@ impl From<io::Error> for Error {
     }
 }
 
+/// Bitwise conversion from T
+pub trait FromBits<T> {
+    /// Convert `other` to `Self`, preserving bitwise representation
+    fn from_bits(other: T) -> Self;
+}
+
+impl<T> FromBits<T> for T {
+    fn from_bits(other: T) -> Self {
+        other
+    }
+}
+
+impl FromBits<u32> for f32 {
+    fn from_bits(other: u32) -> Self {
+        Self::from_bits(other)
+    }
+}
+
+impl FromBits<u64> for f64 {
+    fn from_bits(other: u64) -> Self {
+        Self::from_bits(other)
+    }
+}
+
 /// Wasm value
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub enum Value {
+pub enum Value<F32 = f32, F64 = f64> {
     /// 32-bit signed or unsigned integer.
     I32(i32),
     /// 64-bit signed or unsigned integer.
     I64(i64),
     /// 32-bit floating point number.
-    F32(f32),
+    F32(F32),
     /// 64-bit floating point number.
-    F64(f64),
+    F64(F64),
 }
 
-impl Value {
+impl<F32: FromBits<u32>, F64: FromBits<u64>> Value<F32, F64> {
     fn decode_f32(val: u32) -> Self {
-        Value::F32(f32::from_bits(val))
+        Value::F32(F32::from_bits(val))
     }
 
     fn decode_f64(val: u64) -> Self {
-        Value::F64(f64::from_bits(val))
+        Value::F64(F64::from_bits(val))
     }
 }
 
 /// Description of action that should be performed on a wasm module.
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub enum Action {
+pub enum Action<F32 = f32, F64 = f64> {
     /// Invoke a specified function.
     Invoke {
         /// Name of the module. If `None`, last defined module should be
@@ -181,7 +205,7 @@ pub enum Action {
         /// Field name on which action should be performed.
         field: String,
         /// Arguments that should be passed to the invoked function.
-        args: Vec<Value>,
+        args: Vec<Value<F32, F64>>,
     },
     /// Read the specified global variable.
     Get {
@@ -201,7 +225,9 @@ fn read_file<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, io::Error> {
     Ok(buf)
 }
 
-fn parse_value(test_val: &json::RuntimeValue) -> Result<Value, Error> {
+fn parse_value<F32: FromBits<u32>, F64: FromBits<u64>>(
+    test_val: &json::RuntimeValue
+) -> Result<Value<F32, F64>, Error> {
     fn parse_val<P: str::FromStr>(str_val: &str, str_ty: &str) -> Result<P, Error> {
         str_val
             .parse()
@@ -231,8 +257,10 @@ fn parse_value(test_val: &json::RuntimeValue) -> Result<Value, Error> {
     Ok(value)
 }
 
-fn parse_value_list(test_vals: &[json::RuntimeValue]) -> Result<Vec<Value>, Error> {
-    test_vals.iter().map(parse_value).collect::<Result<Vec<Value>, _>>()
+fn parse_value_list<F32: FromBits<u32>, F64: FromBits<u64>>(
+    test_vals: &[json::RuntimeValue]
+) -> Result<Vec<Value<F32, F64>>, Error> {
+    test_vals.iter().map(parse_value).collect()
 }
 
 // Convert json string to correct rust UTF8 string.
@@ -245,7 +273,7 @@ fn jstring_to_rstring(jstring: &str) -> String {
     rstring
 }
 
-fn parse_action(test_action: &json::Action) -> Result<Action, Error> {
+fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(test_action: &json::Action) -> Result<Action<F32, F64>, Error> {
     let action = match *test_action {
         json::Action::Invoke {
             ref module,
@@ -308,7 +336,7 @@ impl ModuleBinary {
 
 /// Script's command.
 #[derive(Clone, Debug, PartialEq)]
-pub enum CommandKind {
+pub enum CommandKind<F32 = f32, F64 = f64> {
     /// Define, validate and instantiate a module.
     Module {
         /// Wasm module binary to define, validate and instantiate.
@@ -320,24 +348,24 @@ pub enum CommandKind {
     /// Assert that specified action should yield specified results.
     AssertReturn {
         /// Action to perform.
-        action: Action,
+        action: Action<F32, F64>,
         /// Values that expected to be yielded by the action.
-        expected: Vec<Value>,
+        expected: Vec<Value<F32, F64>>,
     },
     /// Assert that specified action should yield NaN in canonical form.
     AssertReturnCanonicalNan { 
         /// Action to perform.
-        action: Action
+        action: Action<F32, F64>
     },
     /// Assert that specified action should yield NaN with 1 in MSB of fraction field.
     AssertReturnArithmeticNan {
         /// Action to perform.
-        action: Action 
+        action: Action<F32, F64> 
     },
     /// Assert that performing specified action must yield in a trap.
     AssertTrap {
         /// Action to perform.
-        action: Action,
+        action: Action<F32, F64>,
         /// Expected failure should be with this message.
         message: String,
     },
@@ -365,7 +393,7 @@ pub enum CommandKind {
     /// Assert that specified action should yield in resource exhaustion.
     AssertExhaustion { 
         /// Action to perform.
-        action: Action,
+        action: Action<F32, F64>,
     },
     /// Assert that specified module fails to link.
     AssertUnlinkable {
@@ -388,7 +416,7 @@ pub enum CommandKind {
     /// Perform the specified [action].
     /// 
     /// [action]: enum.Action.html
-    PerformAction(Action),
+    PerformAction(Action<F32, F64>),
 }
 
 /// Command in the script.
@@ -397,26 +425,27 @@ pub enum CommandKind {
 ///
 /// [`CommandKind`]: enum.CommandKind.html
 #[derive(Clone, Debug, PartialEq)]
-pub struct Command {
+pub struct Command<F32 = f32, F64 = f64> {
     /// Line number the command is defined on.
     pub line: u64,
 
     /// Kind of the command.
-    pub kind: CommandKind,
+    pub kind: CommandKind<F32, F64>,
 }
 
 /// Parser which allows to parse WebAssembly script text format.
-pub struct ScriptParser {
+pub struct ScriptParser<F32 = f32, F64 = f64> {
     // We need to hold TempDir reference until every reference to the dir is dead.
     temp_dir: Rc<tempdir::TempDir>,
     cmd_iter: vec::IntoIter<json::Command>,
+    _phantom: ::std::marker::PhantomData<(F32, F64)>,
 }
 
-impl ScriptParser {
+impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
     /// Create `ScriptParser` from the script in specified file.
     ///
     /// The `path` should point to an existing file and the file must have '.wast` extension.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<ScriptParser, Error> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let path = path.as_ref();
         if !path.exists() {
             return Err(Error::Other(format!(
@@ -464,11 +493,12 @@ impl ScriptParser {
         Ok(ScriptParser {
             temp_dir: Rc::new(temp_dir),
             cmd_iter: commands.into_iter(),
+            _phantom: Default::default(),
         })
     }
 
     /// Create `ScriptParser` from the script source.
-    pub fn from_str(source: &str) -> Result<ScriptParser, Error> {
+    pub fn from_str(source: &str) -> Result<Self, Error> {
         use std::io::prelude::*;
         let temp_dir = tempdir::TempDir::new("test")?;
         let mut temp_file_path = PathBuf::from(temp_dir.as_ref());
@@ -487,7 +517,7 @@ impl ScriptParser {
     /// or returns `None` if the parser reached end of script.
     ///
     /// [`Command`]: struct.Command.html
-    pub fn next(&mut self) -> Result<Option<Command>, Error> {
+    pub fn next(&mut self) -> Result<Option<Command<F32, F64>>, Error> {
         let command = match self.cmd_iter.next() {
             Some(cmd) => cmd,
             None => return Ok(None),
