@@ -32,7 +32,7 @@
 //! )
 //! "#;
 //! 
-//! let mut parser = ScriptParser::from_str(wast)?;
+//! let mut parser = ScriptParser::<f32, f64>::from_str(wast)?;
 //! while let Some(Command { kind, .. }) = parser.next()? { 
 //!     match kind {
 //!         CommandKind::Module { module, name } => {
