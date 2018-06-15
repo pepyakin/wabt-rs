@@ -1,19 +1,19 @@
 //! Module for parsing [WebAssembly script format] \(a.k.a. wast).
-//! 
-//! These scripts might be useful to integrate the official spec [testsuite] into implementations 
-//! of the wasm execution engines (such as [wasmi]) and for developing fine-grained tests of 
+//!
+//! These scripts might be useful to integrate the official spec [testsuite] into implementations
+//! of the wasm execution engines (such as [wasmi]) and for developing fine-grained tests of
 //! runtimes or/and if it isn't desired to use full fledged compilers.
-//! 
+//!
 //! # Example
-//! 
+//!
 //! ```rust
 //! use wabt::script::{ScriptParser, Command, CommandKind, Action, Value};
 //! # use wabt::script::Error;
-//! 
+//!
 //! # fn try_main() -> Result<(), Error> {
 //! let wast = r#"
 //! ;; Define anonymous module with function export named `sub`.
-//! (module 
+//! (module
 //!   (func (export "sub") (param $x i32) (param $y i32) (result i32)
 //!     ;; return x - y;
 //!     (i32.sub
@@ -21,7 +21,7 @@
 //!     )
 //!   )
 //! )
-//! 
+//!
 //! ;; Assert that invoking export `sub` with parameters (8, 3)
 //! ;; should return 5.
 //! (assert_return
@@ -31,20 +31,20 @@
 //!   (i32.const 5)
 //! )
 //! "#;
-//! 
+//!
 //! let mut parser = ScriptParser::<f32, f64>::from_str(wast)?;
-//! while let Some(Command { kind, .. }) = parser.next()? { 
+//! while let Some(Command { kind, .. }) = parser.next()? {
 //!     match kind {
 //!         CommandKind::Module { module, name } => {
 //!             // The module is declared as annonymous.
 //!             assert_eq!(name, None);
-//! 
+//!
 //!             // Convert the module into the binary representation and check the magic number.
 //!             let module_binary = module.into_vec()?;
 //!             assert_eq!(&module_binary[0..4], &[0, 97, 115, 109]);
 //!         }
 //!         CommandKind::AssertReturn { action, expected } => {
-//!             assert_eq!(action, Action::Invoke { 
+//!             assert_eq!(action, Action::Invoke {
 //!                 module: None,
 //!                 field: "sub".to_string(),
 //!                 args: vec![
@@ -62,7 +62,7 @@
 //! #
 //! # fn main() {
 //! #     try_main().unwrap();
-//! # } 
+//! # }
 //! ```
 //! [WebAssembly script format]: https://github.com/WebAssembly/spec/blob/a25083ac7076b05e3f304ec9e093ef1b1ee09422/interpreter/README.md#scripts
 //! [testsuite]: https://github.com/WebAssembly/testsuite
@@ -94,7 +94,7 @@ pub enum Error {
     WabtError(WabtError),
     /// Other error represented by String.
     Other(String),
-    /// Not a different kind of an error but just a wrapper for a error 
+    /// Not a different kind of an error but just a wrapper for a error
     /// which we have a line number information.
     WithLineInfo {
         /// Line number of the script on which just error happen.
@@ -353,14 +353,14 @@ pub enum CommandKind<F32 = f32, F64 = f64> {
         expected: Vec<Value<F32, F64>>,
     },
     /// Assert that specified action should yield NaN in canonical form.
-    AssertReturnCanonicalNan { 
+    AssertReturnCanonicalNan {
         /// Action to perform.
         action: Action<F32, F64>
     },
     /// Assert that specified action should yield NaN with 1 in MSB of fraction field.
     AssertReturnArithmeticNan {
         /// Action to perform.
-        action: Action<F32, F64> 
+        action: Action<F32, F64>
     },
     /// Assert that performing specified action must yield in a trap.
     AssertTrap {
@@ -391,7 +391,7 @@ pub enum CommandKind<F32 = f32, F64 = f64> {
         message: String,
     },
     /// Assert that specified action should yield in resource exhaustion.
-    AssertExhaustion { 
+    AssertExhaustion {
         /// Action to perform.
         action: Action<F32, F64>,
     },
@@ -405,16 +405,16 @@ pub enum CommandKind<F32 = f32, F64 = f64> {
     /// Register a module under specified name (`as_name`).
     Register {
         /// Name of the module, which should be registered under different name.
-        /// 
+        ///
         /// If `None` then the last defined [module][`Module`] should be used.
-        /// 
+        ///
         /// [`Module`]: #variant.Module
         name: Option<String>,
         /// New name of the specified module.
         as_name: String,
     },
     /// Perform the specified [action].
-    /// 
+    ///
     /// [action]: enum.Action.html
     PerformAction(Action<F32, F64>),
 }

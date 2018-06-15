@@ -182,7 +182,7 @@ fn parse_wasm() {
         );
         assert_eq!(wabt_read_binary_result_get_result(result), Result::Ok);
         let module = wabt_read_binary_result_release_module(result);
-        
+
         wabt_destroy_read_binary_result(result);
 
         let result = wabt_write_text_module(module, 0, 0);

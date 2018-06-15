@@ -217,25 +217,25 @@ impl Drop for ReadBinaryResult {
 }
 
 /// Buffer returned by wabt.
-/// 
-/// # Examples 
-/// 
+///
+/// # Examples
+///
 /// You can convert it either to `Vec`:
-/// 
+///
 /// ```rust
 /// # extern crate wabt;
 /// # let wabt_buf = wabt::Wat2Wasm::new().convert("(module)").unwrap();
 /// let vec: Vec<u8> = wabt_buf.as_ref().to_vec();
 /// ```
-/// 
+///
 /// Or in `String`:
-/// 
+///
 /// ```rust
 /// # extern crate wabt;
 /// # let wabt_buf = wabt::Wat2Wasm::new().convert("(module)").unwrap();
 /// let text = String::from_utf8(wabt_buf.as_ref().to_vec()).unwrap();
 /// ```
-/// 
+///
 pub struct WabtBuf {
     raw_buffer: *mut ffi::OutputBuffer,
 }
@@ -247,7 +247,7 @@ impl AsRef<[u8]> for WabtBuf {
             if size == 0 {
                 return &[];
             }
-            
+
             let data = ffi::wabt_output_buffer_get_data(self.raw_buffer) as *const u8;
 
             slice::from_raw_parts(data, size)
@@ -316,7 +316,7 @@ impl Default for WriteBinaryOptions {
 
 struct WriteTextOptions {
     fold_exprs: bool,
-    inline_export: bool,    
+    inline_export: bool,
 }
 
 impl Default for WriteTextOptions {
@@ -408,7 +408,7 @@ impl Script {
         unsafe {
             let result = ffi::wabt_resolve_names_script(
                 self.lexer.raw_lexer,
-                self.raw_script, 
+                self.raw_script,
                 error_handler.raw_buffer
             );
             if result == ffi::Result::Error {
@@ -482,12 +482,12 @@ impl Module {
             }
         }
     }
-    
+
     /// Read WebAssembly binary.
-    /// 
+    ///
     /// `read_binary` doesn't do any validation. If you want to validate, you can the module you can
     /// call [`validate`].
-    /// 
+    ///
     /// [`validate`]: #method.validate
     pub fn read_binary<S: AsRef<[u8]>>(wasm: S, options: &ReadBinaryOptions) -> Result<Module, Error> {
         let error_handler = ErrorHandler::new_binary();
@@ -495,9 +495,9 @@ impl Module {
             let wasm = wasm.as_ref();
             let raw_result = unsafe {
                 ffi::wabt_read_binary(
-                    wasm.as_ptr(), 
-                    wasm.len(), 
-                    options.read_debug_names as c_int, 
+                    wasm.as_ptr(),
+                    wasm.len(),
+                    options.read_debug_names as c_int,
                     error_handler.raw_buffer
                 )
             };
@@ -565,8 +565,8 @@ impl Module {
     fn write_text(&self, options: &WriteTextOptions) -> Result<WabtBuf, Error> {
         let result = unsafe {
             let raw_result = ffi::wabt_write_text_module(
-                self.raw_module, 
-                options.fold_exprs as c_int, 
+                self.raw_module,
+                options.fold_exprs as c_int,
                 options.inline_export as c_int,
             );
             WriteModuleResult { raw_result }
@@ -586,14 +586,14 @@ impl Drop for Module {
 }
 
 /// A builder for translate wasm text source to wasm binary format.
-/// 
+///
 /// This version allows you to tweak parameters. If you need simple version
 /// check out [`wat2wasm`].
-/// 
+///
 /// [`wat2wasm`]: fn.wat2wasm.html
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// extern crate wabt;
 /// use wabt::Wat2Wasm;
@@ -613,11 +613,11 @@ impl Drop for Module {
 ///                 )
 ///             "#
 ///         ).unwrap();
-/// 
+///
 ///     # wasm_binary;
 /// }
 /// ```
-/// 
+///
 pub struct Wat2Wasm {
     validate: bool,
     write_binary_options: WriteBinaryOptions,
@@ -633,7 +633,7 @@ impl Wat2Wasm {
     }
 
     /// Write canonicalized LEB128 for var ints.
-    /// 
+    ///
     /// Set this to `false` to write all LEB128 sizes as 5-bytes instead of their minimal size.
     /// `true` by default.
     pub fn canonicalize_lebs(&mut self, canonicalize_lebs: bool) -> &mut Wat2Wasm {
@@ -641,8 +641,8 @@ impl Wat2Wasm {
         self
     }
 
-    /// Create a relocatable wasm binary 
-    /// 
+    /// Create a relocatable wasm binary
+    ///
     /// (suitable for linking with wasm-link).
     /// `false` by default.
     pub fn relocatable(&mut self, relocatable: bool) -> &mut Wat2Wasm {
@@ -651,7 +651,7 @@ impl Wat2Wasm {
     }
 
     /// Write debug names to the generated binary file
-    /// 
+    ///
     /// `false` by default.
     pub fn write_debug_names(&mut self, write_debug_names: bool) -> &mut Wat2Wasm {
         self.write_binary_options.write_debug_names = write_debug_names;
@@ -659,7 +659,7 @@ impl Wat2Wasm {
     }
 
     /// Check for validity of module before writing.
-    /// 
+    ///
     /// `true` by default.
     pub fn validate(&mut self, validate: bool) -> &mut Wat2Wasm {
         self.validate = validate;
@@ -683,9 +683,9 @@ impl Wat2Wasm {
 }
 
 /// A builder for converting wasm binary to wasm text format.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// extern crate wabt;
 /// use wabt::Wasm2Wat;
@@ -700,11 +700,11 @@ impl Wat2Wasm {
 ///                 1, 0, 0, 0       //  0x01 - version
 ///             ]
 ///         ).unwrap();
-/// 
+///
 ///     # wasm_text;
 /// }
 /// ```
-/// 
+///
 pub struct Wasm2Wat {
     read_binary_options: ReadBinaryOptions,
     write_text_options: WriteTextOptions,
@@ -720,7 +720,7 @@ impl Wasm2Wat {
     }
 
     /// Read debug names in the binary file.
-    /// 
+    ///
     /// `false` by default.
     pub fn read_debug_names(&mut self, read_debug_names: bool) -> &mut Wasm2Wat {
         self.read_binary_options.read_debug_names = read_debug_names;
@@ -728,9 +728,9 @@ impl Wasm2Wat {
     }
 
     /// Write folded expressions where possible.
-    /// 
+    ///
     /// Example of folded code (if `true`):
-    /// 
+    ///
     /// ```WebAssembly
     /// (module
     ///     (func (param i32 i32) (result i32)
@@ -741,9 +741,9 @@ impl Wasm2Wat {
     ///     )
     /// )
     /// ```
-    /// 
+    ///
     /// Example of straight code (if `false`):
-    /// 
+    ///
     /// ```WebAssembly
     /// (module
     ///     (func (param i32 i32) (result i32)
@@ -753,7 +753,7 @@ impl Wasm2Wat {
     ///     )
     /// )
     /// ```
-    /// 
+    ///
     /// `false` by default.
     pub fn fold_exprs(&mut self, fold_exprs: bool) -> &mut Wasm2Wat {
         self.write_text_options.fold_exprs = fold_exprs;
@@ -761,9 +761,9 @@ impl Wasm2Wat {
     }
 
     /// Write all exports inline.
-    /// 
+    ///
     /// Example of code with inline exports (if `true`):
-    /// 
+    ///
     /// ```WebAssembly
     /// (module
     /// (func $addTwo (export "addTwo") (param $p0 i32) (param $p1 i32) (result i32)
@@ -771,9 +771,9 @@ impl Wasm2Wat {
     ///     (get_local $p0)
     ///     (get_local $p1))))
     /// ```
-    /// 
+    ///
     /// Example of code with separate exports (if `false`):
-    /// 
+    ///
     /// ```WebAssembly
     /// (module
     ///   (func $addTwo (param $p0 i32) (param $p1 i32) (result i32)
@@ -782,7 +782,7 @@ impl Wasm2Wat {
     ///       (get_local $p1)))
     ///   (export "addTwo" (func $addTwo)))
     /// ```
-    /// 
+    ///
     /// `false` by default.
     pub fn inline_export(&mut self, inline_export: bool) -> &mut Wasm2Wat {
         self.write_text_options.inline_export = inline_export;
@@ -798,17 +798,17 @@ impl Wasm2Wat {
 }
 
 /// Translate wasm text source to wasm binary format.
-/// 
+///
 /// If wasm source is valid wasm binary will be returned in the vector.
 /// Returned binary is validated and can be executed.
-/// 
-/// This function will make translation with default parameters. 
+///
+/// This function will make translation with default parameters.
 /// If you want to find out what default parameters are or you want to tweak them
 /// you can use [`Wat2Wasm`]
 ///
 /// For more examples and online demo you can check online version
 /// of [wat2wasm](https://cdn.rawgit.com/WebAssembly/wabt/aae5a4b7/demo/wat2wasm/).
-/// 
+///
 /// [`Wat2Wasm`]: struct.Wat2Wasm.html
 ///
 /// # Examples
@@ -928,9 +928,9 @@ fn test_wasm2wat() {
 fn roundtrip() {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     let factorial: &[u8] = &[
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 124, 1, 124, 3, 2, 1, 0, 7, 7, 
-        1, 3, 102, 97, 99, 0, 0, 10, 46, 1, 44, 0, 32, 0, 68, 0, 0, 0, 0, 0, 0, 240, 
-        63, 99, 4, 124, 68, 0, 0, 0, 0, 0, 0, 240, 63, 5, 32, 0, 32, 0, 68, 0, 0, 0, 
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 124, 1, 124, 3, 2, 1, 0, 7, 7,
+        1, 3, 102, 97, 99, 0, 0, 10, 46, 1, 44, 0, 32, 0, 68, 0, 0, 0, 0, 0, 0, 240,
+        63, 99, 4, 124, 68, 0, 0, 0, 0, 0, 0, 240, 63, 5, 32, 0, 32, 0, 68, 0, 0, 0,
         0, 0, 0, 240, 63, 161, 16, 0, 162, 11, 11
     ];
 
