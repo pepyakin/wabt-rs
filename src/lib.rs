@@ -440,7 +440,7 @@ impl Script {
             let raw_script_result = ffi::wabt_write_binary_spec_script(
                 self.raw_script,
                 source_cstr.as_ptr(),
-                std::ptr::null(),
+                ptr::null(),
                 0,
                 1,
                 0,
@@ -869,14 +869,14 @@ impl WabtWriteScriptResult {
         }
     }
 
-    fn get_module_count(&self) -> usize {
+    fn module_count(&self) -> usize {
         unsafe {
             ffi::wabt_write_script_result_get_module_count(self.raw_script_result)
         }
     }
 
-    fn get_module_filename(&self, index: usize) -> &str {
-        assert!(index < self.get_module_count());
+    fn module_filename(&self, index: usize) -> &str {
+        assert!(index < self.module_count());
         unsafe {
             use std::ffi::CStr;
 
@@ -899,12 +899,12 @@ impl WabtWriteScriptResult {
                     ffi::wabt_write_script_result_release_log_output_buffer(
                         self.raw_script_result);
             }
-            for i in 0..self.get_module_count() {
+            for i in 0..self.module_count() {
                 let module_output_buffer = unsafe {
                     ffi::wabt_write_script_result_release_module_output_buffer(
                         self.raw_script_result, i)
                 };
-                let name = self.get_module_filename(i);
+                let name = self.module_filename(i);
                 module_output_buffers.push((
                     name.to_owned(),
                     WabtBuf { raw_buffer: module_output_buffer },
