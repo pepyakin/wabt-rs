@@ -474,7 +474,7 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
         };
 
         let get_module = |filename, s: &Self| {
-        let mut r = None;
+            let mut r = None;
             for &(ref name, ref module) in &s.modules {
                 if name == &filename {
                     r = Some(ModuleBinary::from_vec(module.as_ref().to_owned()));
