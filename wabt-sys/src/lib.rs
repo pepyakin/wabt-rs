@@ -9,6 +9,7 @@ pub enum WabtWriteModuleResult {}
 pub enum WabtReadBinaryResult {}
 pub enum OutputBuffer {}
 pub enum Script {}
+pub enum WabtWriteScriptResult {}
 
 #[derive(Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -123,7 +124,7 @@ extern "C" {
         canonicalize_lebs: c_int,
         relocatable: c_int,
         write_debug_name: c_int,
-    ) -> *mut WabtWriteModuleResult;
+    ) -> *mut WabtWriteScriptResult;
 
     pub fn wabt_read_binary(
         data: *const u8,
@@ -161,6 +162,38 @@ extern "C" {
         fold_exprs: c_int,
         inline_export: c_int,
     ) -> *mut WabtWriteModuleResult;
+
+    // WabtWriteScriptResult
+
+    pub fn wabt_write_script_result_get_result(
+        result: *mut WabtWriteScriptResult
+    ) -> Result;
+
+    pub fn wabt_write_script_result_release_json_output_buffer(
+        result: *mut WabtWriteScriptResult
+    ) -> *mut OutputBuffer;
+
+    pub fn wabt_write_script_result_release_log_output_buffer(
+        result: *mut WabtWriteScriptResult
+    ) -> *mut OutputBuffer;
+
+    pub fn wabt_write_script_result_get_module_count(
+        result: *mut WabtWriteScriptResult
+    ) -> usize;
+
+    pub fn wabt_write_script_result_get_module_filename(
+        result: *mut WabtWriteScriptResult,
+        index: usize
+    ) -> *const c_char;
+
+    pub fn wabt_write_script_result_release_module_output_buffer(
+        result: *mut WabtWriteScriptResult,
+        index: usize
+    ) -> *mut OutputBuffer;
+
+    pub fn wabt_destroy_write_script_result(
+        result: *mut WabtWriteScriptResult
+    );
 }
 
 #[test]
