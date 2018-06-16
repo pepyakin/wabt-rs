@@ -73,6 +73,8 @@ use std::vec;
 use std::str;
 use std::error;
 use std::fmt;
+use std::collections::HashMap;
+use std::ffi::CString;
 
 use serde_json;
 
@@ -418,7 +420,7 @@ pub struct Command<F32 = f32, F64 = f64> {
 /// Parser which allows to parse WebAssembly script text format.
 pub struct ScriptParser<F32 = f32, F64 = f64> {
     cmd_iter: vec::IntoIter<json::Command>,
-    modules: Vec<(String, WabtBuf)>,
+    modules: HashMap<CString, WabtBuf>,
     _phantom: ::std::marker::PhantomData<(F32, F64)>,
 }
 
@@ -473,15 +475,13 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
             None => return Ok(None),
         };
 
-        let get_module = |filename, s: &Self| {
-            let mut r = None;
-            for &(ref name, ref module) in &s.modules {
-                if name == &filename {
-                    r = Some(ModuleBinary::from_vec(module.as_ref().to_owned()));
-                }
-            }
-
-            r.unwrap()
+        let get_module = |filename: String, s: &Self| {
+            let filename = CString::new(filename).unwrap();
+            s.modules
+                .get(&filename)
+                .map(|module| {
+                    ModuleBinary::from_vec(module.as_ref().to_owned())
+                }).expect("Module referenced in JSON does not exist.")
         };
 
         let (line, kind) = match command {

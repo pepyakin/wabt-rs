@@ -10,11 +10,12 @@ extern crate serde_json;
 extern crate serde_derive;
 
 use std::os::raw::{c_void, c_int};
-use std::ffi::{CString, NulError};
+use std::ffi::{CString, CStr, NulError};
 use std::slice;
 use std::ptr;
 use std::error;
 use std::fmt;
+use std::collections::HashMap;
 
 use wabt_sys as ffi;
 
@@ -859,7 +860,7 @@ struct WabtWriteScriptResult {
 struct WabtWriteScriptResultRelease {
     json_output_buffer: WabtBuf,
     _log_output_buffer: WabtBuf,
-    module_output_buffers: Vec<(String, WabtBuf)>,
+    module_output_buffers: HashMap<CString, WabtBuf>,
 }
 
 impl WabtWriteScriptResult {
@@ -875,14 +876,12 @@ impl WabtWriteScriptResult {
         }
     }
 
-    fn module_filename(&self, index: usize) -> &str {
+    fn module_filename(&self, index: usize) -> &CStr {
         assert!(index < self.module_count());
         unsafe {
-            use std::ffi::CStr;
-
-            let s = ffi::wabt_write_script_result_get_module_filename(self.raw_script_result, index);
-            let s = CStr::from_ptr(s);
-            s.to_str().unwrap()
+            let s = ffi::wabt_write_script_result_get_module_filename(
+                self.raw_script_result, index);
+            CStr::from_ptr(s)
         }
     }
 
@@ -890,7 +889,7 @@ impl WabtWriteScriptResult {
         if self.is_ok() {
             let json_output_buffer;
             let log_output_buffer;
-            let mut module_output_buffers = Vec::new();
+            let mut module_output_buffers = HashMap::new();
             unsafe {
                 json_output_buffer =
                     ffi::wabt_write_script_result_release_json_output_buffer(
@@ -905,10 +904,10 @@ impl WabtWriteScriptResult {
                         self.raw_script_result, i)
                 };
                 let name = self.module_filename(i);
-                module_output_buffers.push((
+                module_output_buffers.insert(
                     name.to_owned(),
                     WabtBuf { raw_buffer: module_output_buffer },
-                ));
+                );
             }
             Ok(WabtWriteScriptResultRelease {
                 json_output_buffer: WabtBuf { raw_buffer: json_output_buffer },
