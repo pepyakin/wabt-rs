@@ -40,7 +40,7 @@
 //!             assert_eq!(name, None);
 //!
 //!             // Convert the module into the binary representation and check the magic number.
-//!             let module_binary = module.into_vec()?;
+//!             let module_binary = module.into_vec();
 //!             assert_eq!(&module_binary[0..4], &[0, 97, 115, 109]);
 //!         }
 //!         CommandKind::AssertReturn { action, expected } => {
@@ -68,20 +68,17 @@
 //! [testsuite]: https://github.com/WebAssembly/testsuite
 //! [wasmi]: https://github.com/pepyakin/wasmi
 
-use std::fs::File;
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
 use std::io;
 use std::vec;
 use std::str;
 use std::error;
 use std::fmt;
-use std::rc::Rc;
+use std::collections::HashMap;
+use std::ffi::CString;
 
 use serde_json;
-use tempdir;
 
-use super::{Error as WabtError, Script};
+use super::{Error as WabtError, Script, WabtWriteScriptResult, WabtBuf};
 
 mod json;
 
@@ -217,14 +214,6 @@ pub enum Action<F32 = f32, F64 = f64> {
     },
 }
 
-fn read_file<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, io::Error> {
-    use std::io::Read;
-    let mut buf = Vec::new();
-    let mut file = File::open(path)?;
-    file.read_to_end(&mut buf)?;
-    Ok(buf)
-}
-
 fn parse_value<F32: FromBits<u32>, F64: FromBits<u64>>(
     test_val: &json::RuntimeValue
 ) -> Result<Value<F32, F64>, Error> {
@@ -295,42 +284,37 @@ fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(test_action: &json::Acti
     Ok(action)
 }
 
-fn wast2json(path: &Path, test_filename: &str, json_spec_path: &Path) -> Result<(), Error> {
-    let source = read_file(path)?;
+fn wast2json(source: &[u8], test_filename: &str) -> Result<WabtWriteScriptResult, Error> {
     let script = Script::parse(test_filename, source)?;
     script.resolve_names()?;
     script.validate()?;
-    script.write_binaries(test_filename, &json_spec_path)?;
-    Ok(())
+    let result = script.write_binaries(test_filename)?;
+    Ok(result)
 }
 
 /// This is a handle to get the binary representation of the module.
 #[derive(Clone, Debug)]
 pub struct ModuleBinary {
-    _temp_dir: Rc<tempdir::TempDir>,
-    path_to_binary: PathBuf,
+    module: Vec<u8>,
 }
 
 impl Eq for ModuleBinary {}
 impl PartialEq for ModuleBinary {
     fn eq(&self, rhs: &Self) -> bool {
-        // We do only filename comparison, because it should be fully qualified.
-        self.path_to_binary == rhs.path_to_binary
+        self.module == rhs.module
     }
 }
 
 impl ModuleBinary {
-    fn from_path(temp_dir: Rc<tempdir::TempDir>, path: PathBuf) -> ModuleBinary {
+    fn from_vec(module: Vec<u8>) -> ModuleBinary {
         ModuleBinary {
-            _temp_dir: temp_dir,
-            path_to_binary: path,
+            module,
         }
     }
 
     /// Convert this object into wasm module binary representation.
-    pub fn into_vec(self) -> Result<Vec<u8>, Error> {
-        let binary = read_file(&self.path_to_binary)?;
-        Ok(binary)
+    pub fn into_vec(self) -> Vec<u8> {
+        self.module
     }
 }
 
@@ -435,80 +419,48 @@ pub struct Command<F32 = f32, F64 = f64> {
 
 /// Parser which allows to parse WebAssembly script text format.
 pub struct ScriptParser<F32 = f32, F64 = f64> {
-    // We need to hold TempDir reference until every reference to the dir is dead.
-    temp_dir: Rc<tempdir::TempDir>,
     cmd_iter: vec::IntoIter<json::Command>,
+    modules: HashMap<CString, WabtBuf>,
     _phantom: ::std::marker::PhantomData<(F32, F64)>,
 }
 
 impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
     /// Create `ScriptParser` from the script in specified file.
     ///
-    /// The `path` should point to an existing file and the file must have '.wast` extension.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let path = path.as_ref();
-        if !path.exists() {
-            return Err(Error::Other(format!(
-                "Path {} doesn't exists",
-                path.display()
-            )));
-        }
-
-        let extension = path.extension();
-        if extension != Some(OsStr::new("wast")) {
+    /// The `source` should contain valid wast.
+    ///
+    /// The `test_filename` must have a `.wast` extension.
+    pub fn from_source_and_name(source: &[u8], test_filename: &str) -> Result<Self, Error> {
+        if !test_filename.ends_with(".wast") {
             return Err(Error::Other(format!(
                 "Provided {} should have .wast extension",
-                path.display()
+                test_filename
             )));
         }
-
-        // Get test name: filename without an extension ('.wast').
-        let test_filename = path.file_name().and_then(|f| f.to_str()).ok_or_else(|| {
-            Error::Other(format!(
-                "Provided {} should have .wast extension",
-                path.display()
-            ))
-        })?;
-        let test_name = &test_filename[0..test_filename.len() - 5];
-
-        // Create temporary directory for collecting all artifacts of wast2json.
-        let temp_dir_name = format!("spec-testsuite-{}", test_name);
-        let temp_dir = tempdir::TempDir::new(&temp_dir_name)?;
-        let outdir = temp_dir.path().to_path_buf();
-
-        // Construct path for output file of wast2json. Wasm binaries will be named similarly.
-        let mut json_spec_path = PathBuf::from(outdir.clone());
-        json_spec_path.push(&format!("{}.json", test_name));
 
         // Convert wasm script into json spec and binaries. The output artifacts
-        // will be written relative to json_spec_path.
-        wast2json(path, test_filename, &json_spec_path)?;
+        // will be placed in result.
 
-        let mut f = File::open(json_spec_path)?;
+        let results = wast2json(source, test_filename)?;
+        let results = results.take_all().expect("Failed to release");
+
+        let json_str = results.json_output_buffer.as_ref();
+
         let spec: json::Spec =
-            serde_json::from_reader(&mut f).expect("Failed to deserialize JSON file");
+            serde_json::from_slice(json_str).expect("Failed to deserialize JSON buffer");
 
         let json::Spec { commands, .. } = spec;
 
         Ok(ScriptParser {
-            temp_dir: Rc::new(temp_dir),
             cmd_iter: commands.into_iter(),
+            modules: results.module_output_buffers,
             _phantom: Default::default(),
         })
     }
 
     /// Create `ScriptParser` from the script source.
     pub fn from_str(source: &str) -> Result<Self, Error> {
-        use std::io::prelude::*;
-        let temp_dir = tempdir::TempDir::new("test")?;
-        let mut temp_file_path = PathBuf::from(temp_dir.as_ref());
-        temp_file_path.push("test.wast");
-        {
-            let mut temp_file = File::create(&temp_file_path)?;
-            temp_file.write_all(source.as_bytes())?;
-            temp_file.flush()?;
-        }
-        ScriptParser::from_file(temp_file_path)
+        ScriptParser::from_source_and_name(source.as_bytes(), "test.wast")
     }
 
     /// Returns the next [`Command`] from the script.
@@ -523,19 +475,25 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
             None => return Ok(None),
         };
 
+        let get_module = |filename: String, s: &Self| {
+            let filename = CString::new(filename).unwrap();
+            s.modules
+                .get(&filename)
+                .map(|module| {
+                    ModuleBinary::from_vec(module.as_ref().to_owned())
+                }).expect("Module referenced in JSON does not exist.")
+        };
+
         let (line, kind) = match command {
             json::Command::Module {
                 line,
                 name,
                 filename,
             } => {
-                let mut module_path = self.temp_dir.path().to_path_buf();
-                module_path.push(filename);
-
                 (
                     line,
                     CommandKind::Module {
-                        module: ModuleBinary::from_path(Rc::clone(&self.temp_dir), module_path),
+                        module: get_module(filename, self),
                         name,
                     },
                 )
@@ -581,13 +539,10 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
                 filename,
                 text,
             } => {
-                let mut module_path = self.temp_dir.path().to_path_buf();
-                module_path.push(filename);
-
                 (
                     line,
                     CommandKind::AssertInvalid {
-                        module: ModuleBinary::from_path(Rc::clone(&self.temp_dir), module_path),
+                        module: get_module(filename, self),
                         message: text,
                     },
                 )
@@ -597,13 +552,10 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
                 filename,
                 text,
             } => {
-                let mut module_path = self.temp_dir.path().to_path_buf();
-                module_path.push(filename);
-
                 (
                     line,
                     CommandKind::AssertMalformed {
-                        module: ModuleBinary::from_path(Rc::clone(&self.temp_dir), module_path),
+                        module: get_module(filename, self),
                         message: text,
                     },
                 )
@@ -613,13 +565,10 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
                 filename,
                 text,
             } => {
-                let mut module_path = self.temp_dir.path().to_path_buf();
-                module_path.push(filename);
-
                 (
                     line,
                     CommandKind::AssertUnlinkable {
-                        module: ModuleBinary::from_path(Rc::clone(&self.temp_dir), module_path),
+                        module: get_module(filename, self),
                         message: text,
                     },
                 )
@@ -629,12 +578,10 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
                 filename,
                 text,
             } => {
-                let mut module_path = self.temp_dir.path().to_path_buf();
-                module_path.push(filename);
                 (
                     line,
                     CommandKind::AssertUninstantiable {
-                        module: ModuleBinary::from_path(Rc::clone(&self.temp_dir), module_path),
+                        module: get_module(filename, self),
                         message: text,
                     },
                 )

@@ -8,15 +8,14 @@ extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
-extern crate tempdir;
 
 use std::os::raw::{c_void, c_int};
-use std::ffi::{CString, NulError};
-use std::path::Path;
+use std::ffi::{CString, CStr, NulError};
 use std::slice;
 use std::ptr;
 use std::error;
 use std::fmt;
+use std::collections::HashMap;
 
 use wabt_sys as ffi;
 
@@ -435,26 +434,21 @@ impl Script {
         Ok(())
     }
 
-    fn write_binaries(&self, source: &str, out: &Path) -> Result<(), Error> {
+    fn write_binaries(&self, source: &str) -> Result<WabtWriteScriptResult, Error> {
         let source_cstr = CString::new(source)?;
-        let out_cstr = CString::new(out.to_str().ok_or_else(|| Error(ErrorKind::Nul))?)?;
 
         let result = unsafe {
-            let raw_result = ffi::wabt_write_binary_spec_script(
+            let raw_script_result = ffi::wabt_write_binary_spec_script(
                 self.raw_script,
                 source_cstr.as_ptr(),
-                out_cstr.as_ptr(),
+                ptr::null(),
                 0,
                 1,
                 0,
-                0,
-            );
-            WriteModuleResult { raw_result }
+                0);
+            Ok(WabtWriteScriptResult { raw_script_result })
         };
         result
-            .take_wabt_buf()
-            .map(|_| ())
-            .map_err(|_| Error(ErrorKind::WriteBinary))
     }
 }
 
@@ -857,6 +851,81 @@ pub fn wasm2wat<S: AsRef<[u8]>>(wasm: S) -> Result<String, Error> {
     let text = String::from_utf8(result_buf.as_ref().to_vec())
             .map_err(|_| Error(ErrorKind::NonUtf8Result))?;
     Ok(text)
+}
+
+struct WabtWriteScriptResult {
+    raw_script_result: *mut ffi::WabtWriteScriptResult,
+}
+
+struct WabtWriteScriptResultRelease {
+    json_output_buffer: WabtBuf,
+    _log_output_buffer: WabtBuf,
+    module_output_buffers: HashMap<CString, WabtBuf>,
+}
+
+impl WabtWriteScriptResult {
+    fn is_ok(&self) -> bool {
+        unsafe {
+            ffi::wabt_write_script_result_get_result(self.raw_script_result) == ffi::Result::Ok
+        }
+    }
+
+    fn module_count(&self) -> usize {
+        unsafe {
+            ffi::wabt_write_script_result_get_module_count(self.raw_script_result)
+        }
+    }
+
+    fn module_filename(&self, index: usize) -> &CStr {
+        assert!(index < self.module_count());
+        unsafe {
+            let s = ffi::wabt_write_script_result_get_module_filename(
+                self.raw_script_result, index);
+            CStr::from_ptr(s)
+        }
+    }
+
+    fn take_all(self) -> Result<WabtWriteScriptResultRelease, ()> {
+        if self.is_ok() {
+            let json_output_buffer;
+            let log_output_buffer;
+            let mut module_output_buffers = HashMap::new();
+            unsafe {
+                json_output_buffer =
+                    ffi::wabt_write_script_result_release_json_output_buffer(
+                        self.raw_script_result);
+                log_output_buffer =
+                    ffi::wabt_write_script_result_release_log_output_buffer(
+                        self.raw_script_result);
+            }
+            for i in 0..self.module_count() {
+                let module_output_buffer = unsafe {
+                    ffi::wabt_write_script_result_release_module_output_buffer(
+                        self.raw_script_result, i)
+                };
+                let name = self.module_filename(i);
+                module_output_buffers.insert(
+                    name.to_owned(),
+                    WabtBuf { raw_buffer: module_output_buffer },
+                );
+            }
+            Ok(WabtWriteScriptResultRelease {
+                json_output_buffer: WabtBuf { raw_buffer: json_output_buffer },
+                _log_output_buffer: WabtBuf { raw_buffer: log_output_buffer },
+                module_output_buffers,
+            })
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl Drop for WabtWriteScriptResult {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_write_script_result(self.raw_script_result);
+        }
+    }
 }
 
 #[test]
