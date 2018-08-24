@@ -5,7 +5,16 @@ use std::env;
 
 fn main() {
     let dst = cmake::Config::new("wabt")
+        // Turn off building tests and tools. This not only speeds up the build but
+        // also prevents building executables that for some reason are put 
+        // into the `wabt` directory which now is deemed as an error.
+        //
+        // Since that is all targets available, also don't specify target 
+        // (by default it is set to `--target install`).
+        // Otherwise, there will be an error message "No rule to make target `install'".
         .define("BUILD_TESTS", "OFF")
+        .define("BUILD_TOOLS", "OFF")
+        .no_build_target(true)
         .build();
     let mut out_build_dir = dst;
     out_build_dir.push("build");
