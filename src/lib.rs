@@ -437,7 +437,7 @@ impl Script {
     fn write_binaries(&self, source: &str) -> Result<WabtWriteScriptResult, Error> {
         let source_cstr = CString::new(source)?;
 
-        let result = unsafe {
+        unsafe {
             let raw_script_result = ffi::wabt_write_binary_spec_script(
                 self.raw_script,
                 source_cstr.as_ptr(),
@@ -447,8 +447,7 @@ impl Script {
                 0,
                 0);
             Ok(WabtWriteScriptResult { raw_script_result })
-        };
-        result
+        }
     }
 }
 

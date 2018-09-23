@@ -258,8 +258,7 @@ fn parse_value_list<F32: FromBits<u32>, F64: FromBits<u64>>(
 // This conversion is incorrect in general case (casting char to u8)!!!
 fn jstring_to_rstring(jstring: &str) -> String {
     let jstring_chars: Vec<u8> = jstring.chars().map(|c| c as u8).collect();
-    let rstring = String::from_utf8(jstring_chars).unwrap();
-    rstring
+    String::from_utf8(jstring_chars).unwrap()
 }
 
 fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(test_action: &json::Action) -> Result<Action<F32, F64>, Error> {
