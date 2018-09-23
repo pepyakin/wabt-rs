@@ -10,5 +10,5 @@ categories = ["external-ffi-bindings"]
 keywords = ["tools", "webassembly", "wasm"]
 
 [build-dependencies]
-cmake = "0.1.25"
+cmake = "0.1.32"
 cc = "1.0.4"
