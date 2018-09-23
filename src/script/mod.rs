@@ -465,7 +465,7 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
 
     /// Returns the next [`Command`] from the script.
     ///
-    /// Returns `Err` if an error occured while parsing the script,
+    /// Returns `Err` if an error occurred while parsing the script,
     /// or returns `None` if the parser reached end of script.
     ///
     /// [`Command`]: struct.Command.html

@@ -579,7 +579,7 @@ impl Drop for Module {
     }
 }
 
-/// A builder for translate wasm text source to wasm binary format.
+/// A builder for translating wasm text source to wasm binary format.
 ///
 /// This version allows you to tweak parameters. If you need simple version
 /// check out [`wat2wasm`].
