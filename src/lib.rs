@@ -102,46 +102,62 @@ impl Drop for Lexer {
     }
 }
 
-struct ErrorHandler {
-    raw_buffer: *mut ffi::ErrorHandlerBuffer,
+struct Errors {
+    raw: *mut ffi::Errors,
 }
 
-impl ErrorHandler {
-    fn new_binary() -> ErrorHandler {
-        let raw_buffer = unsafe {
-            ffi::wabt_new_binary_error_handler_buffer()
-        };
-        ErrorHandler {
-            raw_buffer,
-        }
-    }
-
-    fn new_text() -> ErrorHandler {
-        let raw_buffer = unsafe {
-            ffi::wabt_new_text_error_handler_buffer()
-        };
-        ErrorHandler {
-            raw_buffer,
-        }
-    }
-
-    fn raw_message(&self) -> &[u8] {
-        unsafe {
-            let size = ffi::wabt_error_handler_buffer_get_size(self.raw_buffer);
-            if size == 0 {
-                return &[];
+impl Errors {
+    fn new() -> Errors {
+        Errors {
+            raw: unsafe {
+                ffi::wabt_new_errors()
             }
+        }
+    }
 
-            let data = ffi::wabt_error_handler_buffer_get_data(self.raw_buffer);
-            slice::from_raw_parts(data as *const u8, size)
+    fn format_text(&self, lexer: &Lexer) -> WabtBuf {
+        unsafe {
+            let raw_buffer = ffi::wabt_format_text_errors(
+                self.raw, 
+                lexer.raw_lexer
+            );
+            WabtBuf { raw_buffer }
+        }
+    }
+
+    fn format_binary(&self) -> WabtBuf {
+        unsafe {
+            let raw_buffer = ffi::wabt_format_binary_errors(self.raw);
+            WabtBuf { raw_buffer }
         }
     }
 }
 
-impl Drop for ErrorHandler {
+impl Drop for Errors {
     fn drop(&mut self) {
         unsafe {
-            ffi::wabt_destroy_error_handler_buffer(self.raw_buffer);
+            ffi::wabt_destroy_errors(self.raw)
+        }
+    }
+}
+
+struct Features {
+    raw: *mut ffi::Features,
+}
+
+impl Features {
+    fn new() -> Features {
+        let raw = unsafe {
+            ffi::wabt_new_features()
+        };
+        Features { raw }
+    }
+}
+
+impl Drop for Features {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::wabt_destroy_features(self.raw)
         }
     }
 }
@@ -176,9 +192,9 @@ impl Drop for ParseWatResult {
     }
 }
 
-fn parse_wat(lexer: &Lexer, error_handler: &ErrorHandler) -> ParseWatResult {
+fn parse_wat(lexer: &Lexer, features: &Features, errors: &Errors) -> ParseWatResult {
     let raw_result = unsafe {
-        ffi::wabt_parse_wat(lexer.raw_lexer, error_handler.raw_buffer)
+        ffi::wabt_parse_wat(lexer.raw_lexer, features.raw, errors.raw)
     };
     ParseWatResult {
         raw_result,
@@ -370,9 +386,9 @@ impl Drop for ParseWastResult {
     }
 }
 
-fn parse_wast(lexer: &Lexer, error_handler: &ErrorHandler) -> ParseWastResult {
+fn parse_wast(lexer: &Lexer, features: &Features, errors: &Errors) -> ParseWastResult {
     let raw_result = unsafe {
-        ffi::wabt_parse_wast(lexer.raw_lexer, error_handler.raw_buffer)
+        ffi::wabt_parse_wast(lexer.raw_lexer, features.raw, errors.raw)
     };
     ParseWastResult {
         raw_result,
@@ -382,36 +398,38 @@ fn parse_wast(lexer: &Lexer, error_handler: &ErrorHandler) -> ParseWastResult {
 struct Script {
     raw_script: *mut ffi::Script,
     lexer: Lexer,
+    features: Features,
 }
 
 impl Script {
     fn parse<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Script, Error> {
         let lexer = Lexer::new(filename, source.as_ref())?;
-        let error_handler = ErrorHandler::new_text();
-        match parse_wast(&lexer, &error_handler).take_script() {
+        let errors = Errors::new();
+        let features = Features::new();
+        match parse_wast(&lexer, &features, &errors).take_script() {
             Ok(raw_script) => Ok(
                 Script {
                     raw_script,
+                    features,
                     lexer,
                 }
             ),
             Err(()) => {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                let msg = String::from_utf8_lossy(errors.format_text(&lexer).as_ref()).to_string();
                 Err(Error(ErrorKind::Parse(msg)))
             }
         }
     }
 
     fn resolve_names(&self) -> Result<(), Error> {
-        let error_handler = ErrorHandler::new_text();
+        let errors = Errors::new();
         unsafe {
             let result = ffi::wabt_resolve_names_script(
-                self.lexer.raw_lexer,
                 self.raw_script,
-                error_handler.raw_buffer
+                errors.raw
             );
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                let msg = String::from_utf8_lossy(errors.format_text(&self.lexer).as_ref()).to_string();
                 return Err(Error(ErrorKind::ResolveNames(msg)));
             }
         }
@@ -419,15 +437,15 @@ impl Script {
     }
 
     fn validate(&self) -> Result<(), Error> {
-        let error_handler = ErrorHandler::new_text();
+        let errors = Errors::new();
         unsafe {
             let result = ffi::wabt_validate_script(
-                self.lexer.raw_lexer,
                 self.raw_script,
-                error_handler.raw_buffer,
+                self.features.raw,
+                errors.raw,
             );
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                let msg = String::from_utf8_lossy(errors.format_text(&self.lexer).as_ref()).to_string();
                 return Err(Error(ErrorKind::Validate(msg)));
             }
         }
@@ -455,22 +473,25 @@ impl Script {
 pub struct Module {
     raw_module: *mut ffi::WasmModule,
     lexer: Option<Lexer>,
+    features: Features,
 }
 
 impl Module {
     /// Parse source in WebAssembly text format.
     pub fn parse_wat<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Module, Error> {
         let lexer = Lexer::new(filename, source.as_ref())?;
-        let error_handler = ErrorHandler::new_text();
-        match parse_wat(&lexer, &error_handler).take_module() {
+        let errors = Errors::new();
+        let features = Features::new();
+        match parse_wat(&lexer, &features, &errors).take_module() {
             Ok(module) => Ok(
                 Module {
                     raw_module: module,
+                    features,
                     lexer: Some(lexer),
                 }
             ),
             Err(()) => {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                let msg = String::from_utf8_lossy(errors.format_text(&lexer).as_ref()).to_string();
                 Err(Error(ErrorKind::Parse(msg)))
             }
         }
@@ -483,7 +504,8 @@ impl Module {
     ///
     /// [`validate`]: #method.validate
     pub fn read_binary<S: AsRef<[u8]>>(wasm: S, options: &ReadBinaryOptions) -> Result<Module, Error> {
-        let error_handler = ErrorHandler::new_binary();
+        let errors = Errors::new();
+        let features = Features::new();
         let result = {
             let wasm = wasm.as_ref();
             let raw_result = unsafe {
@@ -491,7 +513,8 @@ impl Module {
                     wasm.as_ptr(),
                     wasm.len(),
                     options.read_debug_names as c_int,
-                    error_handler.raw_buffer
+                    features.raw,
+                    errors.raw,
                 )
             };
             ReadBinaryResult {
@@ -502,23 +525,28 @@ impl Module {
             Ok(module) => Ok(
                 Module {
                     raw_module: module,
+                    features,
                     lexer: None
                 }
             ),
             Err(()) => {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                let msg = String::from_utf8_lossy(errors.format_binary().as_ref()).to_string();
                 Err(Error(ErrorKind::Deserialize(msg)))
             }
         }
     }
 
     fn resolve_names(&mut self) -> Result<(), Error> {
-        let error_handler = ErrorHandler::new_text();
+        let errors = Errors::new();
         unsafe {
-            let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
-            let result = ffi::wabt_resolve_names_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
+            let result = ffi::wabt_resolve_names_module(self.raw_module, errors.raw);
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                let buf = if let Some(ref lexer) = self.lexer {
+                    errors.format_text(lexer)
+                } else {
+                    errors.format_binary()
+                };
+                let msg = String::from_utf8_lossy(buf.as_ref()).to_string();
                 return Err(Error(ErrorKind::ResolveNames(msg)));
             }
         }
@@ -527,12 +555,16 @@ impl Module {
 
     /// Validate the module.
     pub fn validate(&self) -> Result<(), Error> {
-        let error_handler = ErrorHandler::new_text();
+        let errors = Errors::new();
         unsafe {
-            let raw_lexer = self.lexer.as_ref().map(|lexer| lexer.raw_lexer).unwrap_or(ptr::null_mut());
-            let result = ffi::wabt_validate_module(raw_lexer, self.raw_module, error_handler.raw_buffer);
+            let result = ffi::wabt_validate_module(self.raw_module, self.features.raw, errors.raw);
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(error_handler.raw_message()).to_string();
+                let buf = if let Some(ref lexer) = self.lexer {
+                    errors.format_text(lexer)
+                } else {
+                    errors.format_binary()
+                };
+                let msg = String::from_utf8_lossy(buf.as_ref()).to_string();
                 return Err(Error(ErrorKind::Validate(msg)));
             }
         }
