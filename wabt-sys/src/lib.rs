@@ -1,7 +1,8 @@
 use std::os::raw::{c_char, c_int, c_void};
 
+pub enum Features {}
+pub enum Errors {}
 pub enum WastLexer {}
-pub enum ErrorHandlerBuffer {}
 pub enum WabtParseWatResult {}
 pub enum WabtParseWastResult {}
 pub enum WasmModule {}
@@ -19,6 +20,12 @@ pub enum Result {
 }
 
 extern "C" {
+    pub fn wabt_new_features() -> *mut Features;
+
+    // TODO: Actually set features.
+
+    pub fn wabt_destroy_features(features: *mut Features);
+
     pub fn wabt_new_wast_buffer_lexer(
         filename: *const c_char,
         data: *const c_void,
@@ -27,28 +34,29 @@ extern "C" {
 
     pub fn wabt_destroy_wast_lexer(lexer: *mut WastLexer);
 
-    pub fn wabt_new_text_error_handler_buffer() -> *mut ErrorHandlerBuffer;
+    pub fn wabt_new_errors() -> *mut Errors;
 
-    pub fn wabt_new_binary_error_handler_buffer() -> *mut ErrorHandlerBuffer;
+    pub fn wabt_format_text_errors(
+        errors: *mut Errors,
+        lexer: *mut WastLexer,
+    ) -> *mut OutputBuffer;
 
-    pub fn wabt_error_handler_buffer_get_data(
-        error_handler: *mut ErrorHandlerBuffer
-    ) -> *const c_void;
+    pub fn wabt_format_binary_errors(
+        errors: *mut Errors,
+    ) -> *mut OutputBuffer;
 
-    pub fn wabt_error_handler_buffer_get_size(
-        error_handler: *mut ErrorHandlerBuffer
-    ) -> usize;
-
-    pub fn wabt_destroy_error_handler_buffer(error_handler: *mut ErrorHandlerBuffer);
+    pub fn wabt_destroy_errors(errors: *mut Errors);
 
     pub fn wabt_parse_wat(
         lexer: *mut WastLexer,
-        error_handler: *mut ErrorHandlerBuffer,
+        features: *mut Features,
+        errors: *mut Errors,
     ) -> *mut WabtParseWatResult;
 
     pub fn wabt_parse_wast(
         lexer: *mut WastLexer,
-        error_handler: *mut ErrorHandlerBuffer,
+        features: *mut Features,
+        errors: *mut Errors,
     ) -> *mut WabtParseWastResult;
 
     pub fn wabt_parse_wat_result_get_result(result: *mut WabtParseWatResult) -> Result;
@@ -59,9 +67,8 @@ extern "C" {
     pub fn wabt_destroy_parse_wat_result(result: *mut WabtParseWatResult);
 
     pub fn wabt_resolve_names_module(
-        lexer: *mut WastLexer,
         module: *mut WasmModule,
-        error_handler: *mut ErrorHandlerBuffer,
+        errors: *mut Errors,
     ) -> Result;
 
     pub fn wabt_apply_names_module(
@@ -73,9 +80,9 @@ extern "C" {
     ) -> Result;
 
     pub fn wabt_validate_module(
-        lexer: *mut WastLexer,
         module: *mut WasmModule,
-        error_handler: *mut ErrorHandlerBuffer,
+        features: *mut Features,
+        erros: *mut Errors,
     ) -> Result;
 
     pub fn wabt_destroy_module(
@@ -105,15 +112,14 @@ extern "C" {
     pub fn wabt_destroy_output_buffer(buffer: *mut OutputBuffer);
 
     pub fn wabt_resolve_names_script(
-        lexer: *mut WastLexer,
         script: *mut Script,
-        error_handler: *mut ErrorHandlerBuffer,
+        errors: *mut Errors,
     ) -> Result;
 
     pub fn wabt_validate_script(
-        lexer: *mut WastLexer,
         script: *mut Script,
-        error_handler: *mut ErrorHandlerBuffer,
+        features: *mut Features,
+        errors: *mut Errors,
     ) -> Result;
 
     pub fn wabt_write_binary_spec_script(
@@ -130,7 +136,8 @@ extern "C" {
         data: *const u8,
         size: usize,
         read_debug_names: c_int,
-        error_handler: *mut ErrorHandlerBuffer,
+        features: *mut Features,
+        errors: *mut Errors,
     ) -> *mut WabtReadBinaryResult;
 
     pub fn wabt_parse_wast_result_get_result(
@@ -206,12 +213,14 @@ fn parse_wasm() {
     ];
 
     unsafe {
-        let error_handler = wabt_new_binary_error_handler_buffer();
+        let errors = wabt_new_errors();
+        let features = wabt_new_features();
         let result = wabt_read_binary(
             data.as_ptr(),
             data.len(),
             true as c_int,
-            error_handler,
+            features,
+            errors,
         );
         assert_eq!(wabt_read_binary_result_get_result(result), Result::Ok);
         let module = wabt_read_binary_result_release_module(result);
@@ -231,5 +240,8 @@ fn parse_wasm() {
 
         let text = String::from_utf8(buf).unwrap();
         assert_eq!(&text, "(module)\n");
+
+        wabt_destroy_features(features);
+        wabt_destroy_errors(errors);
     }
 }
