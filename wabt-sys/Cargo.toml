@@ -1,6 +1,6 @@
 [package]
 name = "wabt-sys"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Sergey Pepyakin <s.pepyakin@gmail.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/pepyakin/wabt-rs"
