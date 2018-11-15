@@ -29,22 +29,21 @@ pub struct Error(ErrorKind);
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO: A better formatting
-        write!(f, "error: {:?}", self)
+        write!(f, "Error: {}", self.description())
     }
 }
 
 impl error::Error for Error {
     fn description(&self) -> &str {
         match self.0 {
-            ErrorKind::Nul => "string contained nul-byte",
-            ErrorKind::Deserialize(_) => "failed to deserialize",
-            ErrorKind::Parse(_) => "failed to parse",
-            ErrorKind::WriteText => "failed to write text",
-            ErrorKind::NonUtf8Result => "result is not a valid utf8",
-            ErrorKind::WriteBinary => "failed to write binary",
-            ErrorKind::ResolveNames(_) => "failed to resolve names",
-            ErrorKind::Validate(_) => "failed to validate",
+            ErrorKind::Nul => "String contained nul-byte",
+            ErrorKind::Deserialize(msg) => format!("Failed to deserialize: {}", msg),
+            ErrorKind::Parse(msg) => format!("Failed to parse: {}", msg),
+            ErrorKind::WriteText => "Failed to write text",
+            ErrorKind::NonUtf8Result => "Result is not a valid utf8 string",
+            ErrorKind::WriteBinary => "Failed to write binary",
+            ErrorKind::ResolveNames(msg) => format!("Failed to resolve names: {}", msg),
+            ErrorKind::Validate(msg) => format!("Failed to validate: {}", msg),
         }
     }
 }
