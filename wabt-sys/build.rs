@@ -1,27 +1,46 @@
-extern crate cmake;
 extern crate cc;
+extern crate cmake;
+#[cfg(windows)]
+extern crate glob;
 
 use std::env;
 
 fn main() {
     let dst = cmake::Config::new("wabt")
         // Turn off building tests and tools. This not only speeds up the build but
-        // also prevents building executables that for some reason are put 
+        // also prevents building executables that for some reason are put
         // into the `wabt` directory which now is deemed as an error.
         //
-        // Since that is all targets available, also don't specify target 
+        // Since that is all targets available, also don't specify target
         // (by default it is set to `--target install`).
         // Otherwise, there will be an error message "No rule to make target `install'".
         .define("BUILD_TESTS", "OFF")
         .define("BUILD_TOOLS", "OFF")
         .no_build_target(true)
         .build();
+
     let mut out_build_dir = dst;
     out_build_dir.push("build");
 
     println!("cargo:rustc-link-search=native={}", out_build_dir.display());
+
+    // help cargo find wabt.lib when targeting windows
+    #[cfg(windows)] {
+        let pattern = format!("{}/*/wabt.lib", out_build_dir.display());
+        for entry in glob::glob(&pattern).unwrap() {
+            if let Ok(path) = entry {
+                let out_lib_dir = path.parent().unwrap().to_path_buf();
+                println!(
+                    "cargo:rustc-link-search=native={}",
+                    out_lib_dir.display(),
+                );
+                break;
+            }
+        }
+    }
+
     println!("cargo:rustc-link-lib=static=wabt");
-    
+
     // We need to link against C++ std lib
     if let Some(cpp_stdlib) = get_cpp_stdlib() {
         println!("cargo:rustc-link-lib={}", cpp_stdlib);
