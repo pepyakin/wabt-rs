@@ -12,3 +12,6 @@ keywords = ["tools", "webassembly", "wasm"]
 [build-dependencies]
 cmake = "0.1.32"
 cc = "1.0.4"
+
+[target.'cfg(windows)'.build-dependencies]
+glob = "0.2.11"
