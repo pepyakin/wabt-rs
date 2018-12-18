@@ -1,6 +1,6 @@
 [package]
 name = "wabt"
-version = "0.7.2"
+version = "0.7.3"
 authors = ["Sergey Pepyakin <s.pepyakin@gmail.com>"]
 license = "Apache-2.0"
 readme = "README.md"
@@ -11,7 +11,7 @@ categories = ["api-bindings"]
 keywords = ["tools", "webassembly", "wasm"]
 
 [dependencies]
-wabt-sys = { path = "wabt-sys", version = "0.5.2" }
+wabt-sys = { path = "wabt-sys", version = "0.5.3" }
 serde_json = "1.0"
 serde_derive = "1.0"
 serde = "1.0"
