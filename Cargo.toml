@@ -1,6 +1,6 @@
 [package]
 name = "wabt"
-version = "0.7.3"
+version = "0.7.4"
 authors = ["Sergey Pepyakin <s.pepyakin@gmail.com>"]
 license = "Apache-2.0"
 readme = "README.md"
