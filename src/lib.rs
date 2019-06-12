@@ -22,8 +22,6 @@ use wabt_sys as ffi;
 pub mod script;
 
 /// A structure to represent errors coming out from wabt.
-///
-/// Actual errors are not yet published.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error(ErrorKind);
 
@@ -50,7 +48,7 @@ impl error::Error for Error {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum ErrorKind {
+pub enum ErrorKind {
     Nul,
     Deserialize(String),
     Parse(String),
