@@ -47,15 +47,25 @@ impl error::Error for Error {
     }
 }
 
+/// ErrorKind describes an error condition from a wasm module operation, as well as the
+/// corresponding error message from `wabt`, if any.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ErrorKind {
+    /// Result contained an unexpected null byte.
     Nul,
+    /// Error deserializing binary wasm.
     Deserialize(String),
+    /// Error parsing textual wasm.
     Parse(String),
+    /// Error serializing a wasm module to text.
     WriteText,
+    /// Translating a wasm binary module to text yielded non-utf8 characters.
     NonUtf8Result,
+    /// Error serializing a wasm module to binary.
     WriteBinary,
+    /// Error resolving names in the wasm module.
     ResolveNames(String),
+    /// Error validating the wasm module.
     Validate(String),
 }
 
