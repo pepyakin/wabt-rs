@@ -22,7 +22,24 @@ pub enum Result {
 extern "C" {
     pub fn wabt_new_features() -> *mut Features;
 
-    // TODO: Actually set features.
+    pub fn wabt_exceptions_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_exceptions_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_mutable_globals_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_mutable_globals_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_sat_float_to_int_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_sat_float_to_int_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_sign_extension_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_sign_extension_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_simd_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_simd_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_threads_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_threads_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_multi_value_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_multi_value_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_tail_call_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_tail_call_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_bulk_memory_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_bulk_memory_enabled(features: *mut Features, enabled: c_int);
 
     pub fn wabt_destroy_features(features: *mut Features);
 

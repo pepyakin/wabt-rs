@@ -149,16 +149,199 @@ impl Drop for Errors {
     }
 }
 
-struct Features {
+/// Represents which WebAssembly features are enabled in Wabt.
+pub struct Features {
     raw: *mut ffi::Features,
 }
 
+impl Clone for Features {
+    fn clone(&self) -> Self {
+        let mut new = Features::new();
+        new.set_exceptions_enabled(self.exceptions_enabled());
+        new.set_mutable_globals_enabled(self.mutable_globals_enabled());
+        new.set_sat_float_to_int_enabled(self.sat_float_to_int_enabled());
+        new.set_sign_extension_enabled(self.sign_extension_enabled());
+        new.set_simd_enabled(self.simd_enabled());
+        new.set_threads_enabled(self.threads_enabled());
+        new.set_multi_value_enabled(self.multi_value_enabled());
+        new.set_tail_call_enabled(self.tail_call_enabled());
+        new.set_bulk_memory_enabled(self.bulk_memory_enabled());
+        new
+    }
+}
+
 impl Features {
-    fn new() -> Features {
+    #![allow(missing_docs)]
+    pub fn new() -> Features {
         let raw = unsafe {
             ffi::wabt_new_features()
         };
         Features { raw }
+    }
+
+    pub fn enable_all(&mut self) {
+        self.enable_exceptions();
+        self.enable_mutable_globals();
+        self.enable_sat_float_to_int();
+        self.enable_sign_extension();
+        self.enable_simd();
+        self.enable_threads();
+        self.enable_multi_value();
+        self.enable_tail_call();
+        self.enable_bulk_memory();
+    }
+
+    pub fn exceptions_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_exceptions_enabled(self.raw)
+        }
+    }
+    pub fn enable_exceptions(&mut self) {
+        self.set_exceptions_enabled(true);
+    }
+    pub fn disable_exceptions(&mut self) {
+        self.set_exceptions_enabled(false);
+    }
+    pub fn set_exceptions_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_exceptions_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn mutable_globals_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_mutable_globals_enabled(self.raw)
+        }
+    }
+    pub fn enable_mutable_globals(&mut self) {
+        self.set_mutable_globals_enabled(true);
+    }
+    pub fn disable_mutable_globals(&mut self) {
+        self.set_mutable_globals_enabled(false);
+    }
+    pub fn set_mutable_globals_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_mutable_globals_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn sat_float_to_int_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_sat_float_to_int_enabled(self.raw)
+        }
+    }
+    pub fn enable_sat_float_to_int(&mut self) {
+        self.set_sat_float_to_int_enabled(true);
+    }
+    pub fn disable_sat_float_to_int(&mut self) {
+        self.set_sat_float_to_int_enabled(false);
+    }
+    pub fn set_sat_float_to_int_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_sat_float_to_int_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn sign_extension_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_sign_extension_enabled(self.raw)
+        }
+    }
+    pub fn enable_sign_extension(&mut self) {
+        self.set_sign_extension_enabled(true);
+    }
+    pub fn disable_sign_extension(&mut self) {
+        self.set_sign_extension_enabled(false);
+    }
+    pub fn set_sign_extension_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_sign_extension_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn simd_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_simd_enabled(self.raw)
+        }
+    }
+    pub fn enable_simd(&mut self) {
+        self.set_simd_enabled(true);
+    }
+    pub fn disable_simd(&mut self) {
+        self.set_simd_enabled(false);
+    }
+    pub fn set_simd_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_simd_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn threads_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_threads_enabled(self.raw)
+        }
+    }
+    pub fn enable_threads(&mut self) {
+        self.set_threads_enabled(true);
+    }
+    pub fn disable_threads(&mut self) {
+        self.set_threads_enabled(false);
+    }
+    pub fn set_threads_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_threads_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn multi_value_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_multi_value_enabled(self.raw)
+        }
+    }
+    pub fn enable_multi_value(&mut self) {
+        self.set_multi_value_enabled(true);
+    }
+    pub fn disable_multi_value(&mut self) {
+        self.set_multi_value_enabled(false);
+    }
+    pub fn set_multi_value_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_multi_value_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn tail_call_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_tail_call_enabled(self.raw)
+        }
+    }
+    pub fn enable_tail_call(&mut self) {
+        self.set_tail_call_enabled(true);
+    }
+    pub fn disable_tail_call(&mut self) {
+        self.set_tail_call_enabled(false);
+    }
+    pub fn set_tail_call_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_tail_call_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn bulk_memory_enabled(&self) -> bool {
+        unsafe {
+            ffi::wabt_bulk_memory_enabled(self.raw)
+        }
+    }
+    pub fn enable_bulk_memory(&mut self) {
+        self.set_bulk_memory_enabled(true);
+    }
+    pub fn disable_bulk_memory(&mut self) {
+        self.set_bulk_memory_enabled(false);
+    }
+    pub fn set_bulk_memory_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_bulk_memory_enabled(self.raw, value.into());
+        }
     }
 }
 
@@ -486,15 +669,14 @@ pub struct Module {
 
 impl Module {
     /// Parse source in WebAssembly text format.
-    pub fn parse_wat<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Module, Error> {
+    pub fn parse_wat<S: AsRef<[u8]>>(filename: &str, source: S, features: Features) -> Result<Module, Error> {
         let lexer = Lexer::new(filename, source.as_ref())?;
         let errors = Errors::new();
-        let features = Features::new();
         match parse_wat(&lexer, &features, &errors).take_module() {
             Ok(module) => Ok(
                 Module {
                     raw_module: module,
-                    features,
+                    features: features,
                     lexer: Some(lexer),
                 }
             ),
@@ -654,6 +836,7 @@ impl Drop for Module {
 pub struct Wat2Wasm {
     validate: bool,
     write_binary_options: WriteBinaryOptions,
+    features: Features,
 }
 
 impl Wat2Wasm {
@@ -662,6 +845,7 @@ impl Wat2Wasm {
         Wat2Wasm {
             write_binary_options: WriteBinaryOptions::default(),
             validate: true,
+            features: Features::new(),
         }
     }
 
@@ -703,7 +887,7 @@ impl Wat2Wasm {
 
     /// Perform conversion.
     pub fn convert<S: AsRef<[u8]>>(&self, source: S) -> Result<WabtBuf, Error> {
-        let mut module = Module::parse_wat("test.wast", source)?;
+        let mut module = Module::parse_wat("test.wast", source, self.features.clone())?;
         module.resolve_names()?;
 
         if self.validate {
@@ -852,7 +1036,7 @@ impl Wasm2Wat {
 ///
 /// fn main() {
 ///     assert_eq!(
-///         wat2wasm("(module)").unwrap(),
+///         wat2wasm("(module)", None).unwrap(),
 ///         &[
 ///             0, 97, 115, 109, // \0ASM - magic
 ///             1, 0, 0, 0       //  0x01 - version
@@ -861,8 +1045,13 @@ impl Wasm2Wat {
 /// }
 /// ```
 ///
-pub fn wat2wasm<S: AsRef<[u8]>>(source: S) -> Result<Vec<u8>, Error> {
-    let result_buf = Wat2Wasm::new().convert(source)?;
+pub fn wat2wasm<S: AsRef<[u8]>>(source: S, feature: Option<Features>) -> Result<Vec<u8>, Error> {
+    let mut wat2wasm = Wat2Wasm::new();
+    match feature {
+      Some(f) => wat2wasm.features = f.clone(),
+      None => {}
+    }
+    let result_buf = wat2wasm.convert(source)?;
     Ok(result_buf.as_ref().to_vec())
 }
 
