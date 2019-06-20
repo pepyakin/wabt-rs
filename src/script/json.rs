@@ -1,4 +1,3 @@
-
 #[derive(Deserialize, Debug)]
 pub struct RuntimeValue {
     #[serde(rename = "type")]
@@ -19,7 +18,7 @@ pub enum Action {
     Get {
         module: Option<String>,
         field: String,
-    }
+    },
 }
 
 #[derive(Deserialize, Debug)]
@@ -29,7 +28,7 @@ pub enum Command {
     Module {
         line: u64,
         name: Option<String>,
-        filename: String
+        filename: String,
     },
     #[serde(rename = "assert_return")]
     AssertReturn {
@@ -38,15 +37,9 @@ pub enum Command {
         expected: Vec<RuntimeValue>,
     },
     #[serde(rename = "assert_return_canonical_nan")]
-    AssertReturnCanonicalNan {
-        line: u64,
-        action: Action,
-    },
+    AssertReturnCanonicalNan { line: u64, action: Action },
     #[serde(rename = "assert_return_arithmetic_nan")]
-    AssertReturnArithmeticNan {
-        line: u64,
-        action: Action,
-    },
+    AssertReturnArithmeticNan { line: u64, action: Action },
     #[serde(rename = "assert_trap")]
     AssertTrap {
         line: u64,
@@ -72,10 +65,7 @@ pub enum Command {
         text: String,
     },
     #[serde(rename = "assert_exhaustion")]
-    AssertExhaustion {
-        line: u64,
-        action: Action,
-    },
+    AssertExhaustion { line: u64, action: Action },
     #[serde(rename = "assert_unlinkable")]
     AssertUnlinkable {
         line: u64,
@@ -90,10 +80,7 @@ pub enum Command {
         as_name: String,
     },
     #[serde(rename = "action")]
-    Action {
-        line: u64,
-        action: Action,
-    },
+    Action { line: u64, action: Action },
 }
 
 #[derive(Deserialize, Debug)]

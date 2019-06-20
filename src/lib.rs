@@ -3,19 +3,19 @@
 
 #![deny(missing_docs)]
 
-extern crate wabt_sys;
 extern crate serde;
 extern crate serde_json;
+extern crate wabt_sys;
 #[macro_use]
 extern crate serde_derive;
 
-use std::os::raw::{c_void, c_int};
-use std::ffi::{CString, CStr, NulError};
-use std::slice;
-use std::ptr;
-use std::error;
-use std::fmt;
 use std::collections::HashMap;
+use std::error;
+use std::ffi::{CStr, CString, NulError};
+use std::fmt;
+use std::os::raw::{c_int, c_void};
+use std::ptr;
+use std::slice;
 
 use wabt_sys as ffi;
 
@@ -117,18 +117,13 @@ struct Errors {
 impl Errors {
     fn new() -> Errors {
         Errors {
-            raw: unsafe {
-                ffi::wabt_new_errors()
-            }
+            raw: unsafe { ffi::wabt_new_errors() },
         }
     }
 
     fn format_text(&self, lexer: &Lexer) -> WabtBuf {
         unsafe {
-            let raw_buffer = ffi::wabt_format_text_errors(
-                self.raw, 
-                lexer.raw_lexer
-            );
+            let raw_buffer = ffi::wabt_format_text_errors(self.raw, lexer.raw_lexer);
             WabtBuf { raw_buffer }
         }
     }
@@ -143,9 +138,7 @@ impl Errors {
 
 impl Drop for Errors {
     fn drop(&mut self) {
-        unsafe {
-            ffi::wabt_destroy_errors(self.raw)
-        }
+        unsafe { ffi::wabt_destroy_errors(self.raw) }
     }
 }
 
@@ -173,9 +166,7 @@ impl Clone for Features {
 impl Features {
     #![allow(missing_docs)]
     pub fn new() -> Features {
-        let raw = unsafe {
-            ffi::wabt_new_features()
-        };
+        let raw = unsafe { ffi::wabt_new_features() };
         Features { raw }
     }
 
@@ -192,9 +183,7 @@ impl Features {
     }
 
     pub fn exceptions_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_exceptions_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_exceptions_enabled(self.raw) }
     }
     pub fn enable_exceptions(&mut self) {
         self.set_exceptions_enabled(true);
@@ -209,9 +198,7 @@ impl Features {
     }
 
     pub fn mutable_globals_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_mutable_globals_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_mutable_globals_enabled(self.raw) }
     }
     pub fn enable_mutable_globals(&mut self) {
         self.set_mutable_globals_enabled(true);
@@ -226,9 +213,7 @@ impl Features {
     }
 
     pub fn sat_float_to_int_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_sat_float_to_int_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_sat_float_to_int_enabled(self.raw) }
     }
     pub fn enable_sat_float_to_int(&mut self) {
         self.set_sat_float_to_int_enabled(true);
@@ -243,9 +228,7 @@ impl Features {
     }
 
     pub fn sign_extension_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_sign_extension_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_sign_extension_enabled(self.raw) }
     }
     pub fn enable_sign_extension(&mut self) {
         self.set_sign_extension_enabled(true);
@@ -260,9 +243,7 @@ impl Features {
     }
 
     pub fn simd_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_simd_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_simd_enabled(self.raw) }
     }
     pub fn enable_simd(&mut self) {
         self.set_simd_enabled(true);
@@ -277,9 +258,7 @@ impl Features {
     }
 
     pub fn threads_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_threads_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_threads_enabled(self.raw) }
     }
     pub fn enable_threads(&mut self) {
         self.set_threads_enabled(true);
@@ -294,9 +273,7 @@ impl Features {
     }
 
     pub fn multi_value_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_multi_value_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_multi_value_enabled(self.raw) }
     }
     pub fn enable_multi_value(&mut self) {
         self.set_multi_value_enabled(true);
@@ -311,9 +288,7 @@ impl Features {
     }
 
     pub fn tail_call_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_tail_call_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_tail_call_enabled(self.raw) }
     }
     pub fn enable_tail_call(&mut self) {
         self.set_tail_call_enabled(true);
@@ -328,9 +303,7 @@ impl Features {
     }
 
     pub fn bulk_memory_enabled(&self) -> bool {
-        unsafe {
-            ffi::wabt_bulk_memory_enabled(self.raw)
-        }
+        unsafe { ffi::wabt_bulk_memory_enabled(self.raw) }
     }
     pub fn enable_bulk_memory(&mut self) {
         self.set_bulk_memory_enabled(true);
@@ -347,9 +320,7 @@ impl Features {
 
 impl Drop for Features {
     fn drop(&mut self) {
-        unsafe {
-            ffi::wabt_destroy_features(self.raw)
-        }
+        unsafe { ffi::wabt_destroy_features(self.raw) }
     }
 }
 
@@ -359,16 +330,12 @@ struct ParseWatResult {
 
 impl ParseWatResult {
     fn is_ok(&self) -> bool {
-        unsafe {
-            ffi::wabt_parse_wat_result_get_result(self.raw_result) == ffi::Result::Ok
-        }
+        unsafe { ffi::wabt_parse_wat_result_get_result(self.raw_result) == ffi::Result::Ok }
     }
 
     fn take_module(self) -> Result<*mut ffi::WasmModule, ()> {
         if self.is_ok() {
-            unsafe {
-                Ok(ffi::wabt_parse_wat_result_release_module(self.raw_result))
-            }
+            unsafe { Ok(ffi::wabt_parse_wat_result_release_module(self.raw_result)) }
         } else {
             Err(())
         }
@@ -384,12 +351,8 @@ impl Drop for ParseWatResult {
 }
 
 fn parse_wat(lexer: &Lexer, features: &Features, errors: &Errors) -> ParseWatResult {
-    let raw_result = unsafe {
-        ffi::wabt_parse_wat(lexer.raw_lexer, features.raw, errors.raw)
-    };
-    ParseWatResult {
-        raw_result,
-    }
+    let raw_result = unsafe { ffi::wabt_parse_wat(lexer.raw_lexer, features.raw, errors.raw) };
+    ParseWatResult { raw_result }
 }
 
 struct ReadBinaryResult {
@@ -398,16 +361,12 @@ struct ReadBinaryResult {
 
 impl ReadBinaryResult {
     fn is_ok(&self) -> bool {
-        unsafe {
-            ffi::wabt_read_binary_result_get_result(self.raw_result) == ffi::Result::Ok
-        }
+        unsafe { ffi::wabt_read_binary_result_get_result(self.raw_result) == ffi::Result::Ok }
     }
 
     fn take_module(self) -> Result<*mut ffi::WasmModule, ()> {
         if self.is_ok() {
-            unsafe {
-                Ok(ffi::wabt_read_binary_result_release_module(self.raw_result))
-            }
+            unsafe { Ok(ffi::wabt_read_binary_result_release_module(self.raw_result)) }
         } else {
             Err(())
         }
@@ -475,19 +434,14 @@ struct WriteModuleResult {
 
 impl WriteModuleResult {
     fn is_ok(&self) -> bool {
-        unsafe {
-            ffi::wabt_write_module_result_get_result(self.raw_result) == ffi::Result::Ok
-        }
+        unsafe { ffi::wabt_write_module_result_get_result(self.raw_result) == ffi::Result::Ok }
     }
 
     fn take_wabt_buf(self) -> Result<WabtBuf, ()> {
         if self.is_ok() {
-            let raw_buffer = unsafe {
-                ffi::wabt_write_module_result_release_output_buffer(self.raw_result)
-            };
-            Ok(WabtBuf {
-                raw_buffer,
-            })
+            let raw_buffer =
+                unsafe { ffi::wabt_write_module_result_release_output_buffer(self.raw_result) };
+            Ok(WabtBuf { raw_buffer })
         } else {
             Err(())
         }
@@ -496,9 +450,7 @@ impl WriteModuleResult {
 
 impl Drop for WriteModuleResult {
     fn drop(&mut self) {
-        unsafe {
-            ffi::wabt_destroy_write_module_result(self.raw_result)
-        }
+        unsafe { ffi::wabt_destroy_write_module_result(self.raw_result) }
     }
 }
 
@@ -553,16 +505,12 @@ struct ParseWastResult {
 
 impl ParseWastResult {
     fn is_ok(&self) -> bool {
-        unsafe {
-            ffi::wabt_parse_wast_result_get_result(self.raw_result) == ffi::Result::Ok
-        }
+        unsafe { ffi::wabt_parse_wast_result_get_result(self.raw_result) == ffi::Result::Ok }
     }
 
     fn take_script(self) -> Result<*mut ffi::Script, ()> {
         if self.is_ok() {
-            unsafe {
-                Ok(ffi::wabt_parse_wast_result_release_module(self.raw_result))
-            }
+            unsafe { Ok(ffi::wabt_parse_wast_result_release_module(self.raw_result)) }
         } else {
             Err(())
         }
@@ -578,12 +526,8 @@ impl Drop for ParseWastResult {
 }
 
 fn parse_wast(lexer: &Lexer, features: &Features, errors: &Errors) -> ParseWastResult {
-    let raw_result = unsafe {
-        ffi::wabt_parse_wast(lexer.raw_lexer, features.raw, errors.raw)
-    };
-    ParseWastResult {
-        raw_result,
-    }
+    let raw_result = unsafe { ffi::wabt_parse_wast(lexer.raw_lexer, features.raw, errors.raw) };
+    ParseWastResult { raw_result }
 }
 
 struct Script {
@@ -598,13 +542,11 @@ impl Script {
         let errors = Errors::new();
         let features = Features::new();
         match parse_wast(&lexer, &features, &errors).take_script() {
-            Ok(raw_script) => Ok(
-                Script {
-                    raw_script,
-                    features,
-                    lexer,
-                }
-            ),
+            Ok(raw_script) => Ok(Script {
+                raw_script,
+                features,
+                lexer,
+            }),
             Err(()) => {
                 let msg = String::from_utf8_lossy(errors.format_text(&lexer).as_ref()).to_string();
                 Err(Error(ErrorKind::Parse(msg)))
@@ -615,12 +557,10 @@ impl Script {
     fn resolve_names(&self) -> Result<(), Error> {
         let errors = Errors::new();
         unsafe {
-            let result = ffi::wabt_resolve_names_script(
-                self.raw_script,
-                errors.raw
-            );
+            let result = ffi::wabt_resolve_names_script(self.raw_script, errors.raw);
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(errors.format_text(&self.lexer).as_ref()).to_string();
+                let msg =
+                    String::from_utf8_lossy(errors.format_text(&self.lexer).as_ref()).to_string();
                 return Err(Error(ErrorKind::ResolveNames(msg)));
             }
         }
@@ -630,13 +570,10 @@ impl Script {
     fn validate(&self) -> Result<(), Error> {
         let errors = Errors::new();
         unsafe {
-            let result = ffi::wabt_validate_script(
-                self.raw_script,
-                self.features.raw,
-                errors.raw,
-            );
+            let result = ffi::wabt_validate_script(self.raw_script, self.features.raw, errors.raw);
             if result == ffi::Result::Error {
-                let msg = String::from_utf8_lossy(errors.format_text(&self.lexer).as_ref()).to_string();
+                let msg =
+                    String::from_utf8_lossy(errors.format_text(&self.lexer).as_ref()).to_string();
                 return Err(Error(ErrorKind::Validate(msg)));
             }
         }
@@ -654,7 +591,8 @@ impl Script {
                 0,
                 1,
                 0,
-                0);
+                0,
+            );
             Ok(WabtWriteScriptResult { raw_script_result })
         }
     }
@@ -669,17 +607,19 @@ pub struct Module {
 
 impl Module {
     /// Parse source in WebAssembly text format.
-    pub fn parse_wat<S: AsRef<[u8]>>(filename: &str, source: S, features: Features) -> Result<Module, Error> {
+    pub fn parse_wat<S: AsRef<[u8]>>(
+        filename: &str,
+        source: S,
+        features: Features,
+    ) -> Result<Module, Error> {
         let lexer = Lexer::new(filename, source.as_ref())?;
         let errors = Errors::new();
         match parse_wat(&lexer, &features, &errors).take_module() {
-            Ok(module) => Ok(
-                Module {
-                    raw_module: module,
-                    features: features,
-                    lexer: Some(lexer),
-                }
-            ),
+            Ok(module) => Ok(Module {
+                raw_module: module,
+                features: features,
+                lexer: Some(lexer),
+            }),
             Err(()) => {
                 let msg = String::from_utf8_lossy(errors.format_text(&lexer).as_ref()).to_string();
                 Err(Error(ErrorKind::Parse(msg)))
@@ -693,7 +633,10 @@ impl Module {
     /// call [`validate`].
     ///
     /// [`validate`]: #method.validate
-    pub fn read_binary<S: AsRef<[u8]>>(wasm: S, options: &ReadBinaryOptions) -> Result<Module, Error> {
+    pub fn read_binary<S: AsRef<[u8]>>(
+        wasm: S,
+        options: &ReadBinaryOptions,
+    ) -> Result<Module, Error> {
         let errors = Errors::new();
         let features = Features::new();
         let result = {
@@ -707,18 +650,14 @@ impl Module {
                     errors.raw,
                 )
             };
-            ReadBinaryResult {
-                raw_result,
-            }
+            ReadBinaryResult { raw_result }
         };
         match result.take_module() {
-            Ok(module) => Ok(
-                Module {
-                    raw_module: module,
-                    features,
-                    lexer: None
-                }
-            ),
+            Ok(module) => Ok(Module {
+                raw_module: module,
+                features,
+                lexer: None,
+            }),
             Err(()) => {
                 let msg = String::from_utf8_lossy(errors.format_binary().as_ref()).to_string();
                 Err(Error(ErrorKind::Deserialize(msg)))
@@ -1048,8 +987,8 @@ impl Wasm2Wat {
 pub fn wat2wasm<S: AsRef<[u8]>>(source: S, feature: Option<Features>) -> Result<Vec<u8>, Error> {
     let mut wat2wasm = Wat2Wasm::new();
     match feature {
-      Some(f) => wat2wasm.features = f.clone(),
-      None => {}
+        Some(f) => wat2wasm.features = f.clone(),
+        None => {}
     }
     let result_buf = wat2wasm.convert(source)?;
     Ok(result_buf.as_ref().to_vec())
@@ -1077,7 +1016,7 @@ pub fn wat2wasm<S: AsRef<[u8]>>(source: S, feature: Option<Features>) -> Result<
 pub fn wasm2wat<S: AsRef<[u8]>>(wasm: S) -> Result<String, Error> {
     let result_buf = Wasm2Wat::new().convert(wasm)?;
     let text = String::from_utf8(result_buf.as_ref().to_vec())
-            .map_err(|_| Error(ErrorKind::NonUtf8Result))?;
+        .map_err(|_| Error(ErrorKind::NonUtf8Result))?;
     Ok(text)
 }
 
@@ -1099,16 +1038,14 @@ impl WabtWriteScriptResult {
     }
 
     fn module_count(&self) -> usize {
-        unsafe {
-            ffi::wabt_write_script_result_get_module_count(self.raw_script_result)
-        }
+        unsafe { ffi::wabt_write_script_result_get_module_count(self.raw_script_result) }
     }
 
     fn module_filename(&self, index: usize) -> &CStr {
         assert!(index < self.module_count());
         unsafe {
-            let s = ffi::wabt_write_script_result_get_module_filename(
-                self.raw_script_result, index);
+            let s =
+                ffi::wabt_write_script_result_get_module_filename(self.raw_script_result, index);
             CStr::from_ptr(s)
         }
     }
@@ -1119,27 +1056,34 @@ impl WabtWriteScriptResult {
             let log_output_buffer;
             let mut module_output_buffers = HashMap::new();
             unsafe {
-                json_output_buffer =
-                    ffi::wabt_write_script_result_release_json_output_buffer(
-                        self.raw_script_result);
+                json_output_buffer = ffi::wabt_write_script_result_release_json_output_buffer(
+                    self.raw_script_result,
+                );
                 log_output_buffer =
-                    ffi::wabt_write_script_result_release_log_output_buffer(
-                        self.raw_script_result);
+                    ffi::wabt_write_script_result_release_log_output_buffer(self.raw_script_result);
             }
             for i in 0..self.module_count() {
                 let module_output_buffer = unsafe {
                     ffi::wabt_write_script_result_release_module_output_buffer(
-                        self.raw_script_result, i)
+                        self.raw_script_result,
+                        i,
+                    )
                 };
                 let name = self.module_filename(i);
                 module_output_buffers.insert(
                     name.to_owned(),
-                    WabtBuf { raw_buffer: module_output_buffer },
+                    WabtBuf {
+                        raw_buffer: module_output_buffer,
+                    },
                 );
             }
             Ok(WabtWriteScriptResultRelease {
-                json_output_buffer: WabtBuf { raw_buffer: json_output_buffer },
-                _log_output_buffer: WabtBuf { raw_buffer: log_output_buffer },
+                json_output_buffer: WabtBuf {
+                    raw_buffer: json_output_buffer,
+                },
+                _log_output_buffer: WabtBuf {
+                    raw_buffer: log_output_buffer,
+                },
                 module_output_buffers,
             })
         } else {
@@ -1158,7 +1102,8 @@ impl Drop for WabtWriteScriptResult {
 
 #[test]
 fn module() {
-    let binary_module = wat2wasm(r#"
+    let binary_module = wat2wasm(
+        r#"
 (module
   (import "foo" "bar" (func (param f32)))
   (memory (data "hi"))
@@ -1170,7 +1115,9 @@ fn module() {
     i32.const 42
     drop)
   (export "e" (func 1)))
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     let mut module = Module::read_binary(&binary_module, &ReadBinaryOptions::default()).unwrap();
     module.resolve_names().unwrap();
@@ -1189,15 +1136,21 @@ fn test_wat2wasm() {
             r#"
             (module
             )"#,
-        ).unwrap(),
+        )
+        .unwrap(),
         &[0, 97, 115, 109, 1, 0, 0, 0]
     );
 
-    assert_eq!(wat2wasm("(modu"), Err(Error(ErrorKind::Parse(
-r#"test.wast:1:2: error: unexpected token "modu", expected a module field or a module.
+    assert_eq!(
+        wat2wasm("(modu"),
+        Err(Error(ErrorKind::Parse(
+            r#"test.wast:1:2: error: unexpected token "modu", expected a module field or a module.
 (modu
  ^^^^
-"#.to_string()))));
+"#
+            .to_string()
+        )))
+    );
 }
 
 #[test]
@@ -1205,7 +1158,7 @@ fn test_wasm2wat() {
     assert_eq!(
         wasm2wat(&[
             0, 97, 115, 109, // \0ASM - magic
-            1, 0, 0, 0       //    01 - version
+            1, 0, 0, 0 //    01 - version
         ]),
         Ok("(module)\n".to_owned()),
     );
