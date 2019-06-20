@@ -617,7 +617,7 @@ impl Module {
         match parse_wat(&lexer, &features, &errors).take_module() {
             Ok(module) => Ok(Module {
                 raw_module: module,
-                features: features,
+                features,
                 lexer: Some(lexer),
             }),
             Err(()) => {
@@ -986,10 +986,7 @@ impl Wasm2Wat {
 ///
 pub fn wat2wasm<S: AsRef<[u8]>>(source: S, feature: Option<Features>) -> Result<Vec<u8>, Error> {
     let mut wat2wasm = Wat2Wasm::new();
-    match feature {
-        Some(f) => wat2wasm.features = f.clone(),
-        None => {}
-    }
+    if let Some(f) = feature { wat2wasm.features = f.clone() }
     let result_buf = wat2wasm.convert(source)?;
     Ok(result_buf.as_ref().to_vec())
 }
