@@ -975,7 +975,7 @@ impl Wasm2Wat {
 ///
 /// fn main() {
 ///     assert_eq!(
-///         wat2wasm("(module)", None).unwrap(),
+///         wat2wasm("(module)").unwrap(),
 ///         &[
 ///             0, 97, 115, 109, // \0ASM - magic
 ///             1, 0, 0, 0       //  0x01 - version
@@ -984,9 +984,50 @@ impl Wasm2Wat {
 /// }
 /// ```
 ///
-pub fn wat2wasm<S: AsRef<[u8]>>(source: S, feature: Option<Features>) -> Result<Vec<u8>, Error> {
+pub fn wat2wasm<S: AsRef<[u8]>>(source: S) -> Result<Vec<u8>, Error> {
+    let result_buf = Wat2Wasm::new().convert(source)?;
+    Ok(result_buf.as_ref().to_vec())
+}
+
+/// Translate wasm text source to wasm binary format.
+///
+/// If wasm source is valid wasm binary will be returned in the vector.
+/// Returned binary is validated and can be executed.
+///
+/// This function will make translation with custom features.
+/// If you want to find out what default parameters are or you want to tweak them
+/// you can use [`Wat2Wasm`]
+///
+/// For more examples and online demo you can check online version
+/// of [wat2wasm](https://cdn.rawgit.com/WebAssembly/wabt/aae5a4b7/demo/wat2wasm/).
+///
+/// [`Wat2Wasm`]: struct.Wat2Wasm.html
+///
+/// # Examples
+///
+/// ```rust
+/// extern crate wabt;
+/// use wabt::{Features, wat2wasm_with_features};
+///
+/// fn main() {
+///     let mut features = Features::new();
+///     features.enable_simd();
+///     assert_eq!(
+///         wat2wasm_with_features("(module)", features).unwrap(),
+///         &[
+///             0, 97, 115, 109, // \0ASM - magic
+///             1, 0, 0, 0       //  0x01 - version
+///         ]
+///     );
+/// }
+/// ```
+///
+pub fn wat2wasm_with_features<S: AsRef<[u8]>>(
+    source: S,
+    features: Features,
+) -> Result<Vec<u8>, Error> {
     let mut wat2wasm = Wat2Wasm::new();
-    if let Some(f) = feature { wat2wasm.features = f.clone() }
+    wat2wasm.features = features;
     let result_buf = wat2wasm.convert(source)?;
     Ok(result_buf.as_ref().to_vec())
 }
@@ -1098,6 +1139,22 @@ impl Drop for WabtWriteScriptResult {
 }
 
 #[test]
+fn features() {
+    let example_wat = r#"
+(module
+  (func $simd (result v128)
+    (v128.const i32 1 2 3 4)
+    return)
+)"#;
+
+    assert!(wat2wasm(example_wat).is_err());
+
+    let mut features = Features::new();
+    features.enable_simd();
+    assert!(wat2wasm_with_features(example_wat, features).is_ok());
+}
+
+#[test]
 fn module() {
     let binary_module = wat2wasm(
         r#"
@@ -1132,7 +1189,7 @@ fn test_wat2wasm() {
         wat2wasm(
             r#"
             (module
-            )"#,
+            )"#
         )
         .unwrap(),
         &[0, 97, 115, 109, 1, 0, 0, 0]
