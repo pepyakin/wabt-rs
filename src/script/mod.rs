@@ -68,17 +68,17 @@
 //! [testsuite]: https://github.com/WebAssembly/testsuite
 //! [wasmi]: https://github.com/pepyakin/wasmi
 
-use std::io;
-use std::vec;
-use std::str;
-use std::error;
-use std::fmt;
 use std::collections::HashMap;
+use std::error;
 use std::ffi::CString;
+use std::fmt;
+use std::io;
+use std::str;
+use std::vec;
 
 use serde_json;
 
-use super::{Error as WabtError, Script, WabtWriteScriptResult, WabtBuf};
+use super::{Error as WabtError, Script, WabtBuf, WabtWriteScriptResult};
 
 mod json;
 
@@ -215,7 +215,7 @@ pub enum Action<F32 = f32, F64 = f64> {
 }
 
 fn parse_value<F32: FromBits<u32>, F64: FromBits<u64>>(
-    test_val: &json::RuntimeValue
+    test_val: &json::RuntimeValue,
 ) -> Result<Value<F32, F64>, Error> {
     fn parse_val<P: str::FromStr>(str_val: &str, str_ty: &str) -> Result<P, Error> {
         str_val
@@ -241,13 +241,13 @@ fn parse_value<F32: FromBits<u32>, F64: FromBits<u64>>(
         }
         other_ty => {
             return Err(Error::Other(format!("Unknown type '{}'", other_ty)));
-        },
+        }
     };
     Ok(value)
 }
 
 fn parse_value_list<F32: FromBits<u32>, F64: FromBits<u64>>(
-    test_vals: &[json::RuntimeValue]
+    test_vals: &[json::RuntimeValue],
 ) -> Result<Vec<Value<F32, F64>>, Error> {
     test_vals.iter().map(parse_value).collect()
 }
@@ -261,7 +261,9 @@ fn jstring_to_rstring(jstring: &str) -> String {
     String::from_utf8(jstring_chars).unwrap()
 }
 
-fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(test_action: &json::Action) -> Result<Action<F32, F64>, Error> {
+fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(
+    test_action: &json::Action,
+) -> Result<Action<F32, F64>, Error> {
     let action = match *test_action {
         json::Action::Invoke {
             ref module,
@@ -306,9 +308,7 @@ impl PartialEq for ModuleBinary {
 
 impl ModuleBinary {
     fn from_vec(module: Vec<u8>) -> ModuleBinary {
-        ModuleBinary {
-            module,
-        }
+        ModuleBinary { module }
     }
 
     /// Convert this object into wasm module binary representation.
@@ -338,12 +338,12 @@ pub enum CommandKind<F32 = f32, F64 = f64> {
     /// Assert that specified action should yield NaN in canonical form.
     AssertReturnCanonicalNan {
         /// Action to perform.
-        action: Action<F32, F64>
+        action: Action<F32, F64>,
     },
     /// Assert that specified action should yield NaN with 1 in MSB of fraction field.
     AssertReturnArithmeticNan {
         /// Action to perform.
-        action: Action<F32, F64>
+        action: Action<F32, F64>,
     },
     /// Assert that performing specified action must yield in a trap.
     AssertTrap {
@@ -478,9 +478,8 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
             let filename = CString::new(filename).unwrap();
             s.modules
                 .get(&filename)
-                .map(|module| {
-                    ModuleBinary::from_vec(module.as_ref().to_owned())
-                }).expect("Module referenced in JSON does not exist.")
+                .map(|module| ModuleBinary::from_vec(module.as_ref().to_owned()))
+                .expect("Module referenced in JSON does not exist.")
         };
 
         let (line, kind) = match command {
@@ -488,15 +487,13 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
                 line,
                 name,
                 filename,
-            } => {
-                (
-                    line,
-                    CommandKind::Module {
-                        module: get_module(filename, self),
-                        name,
-                    },
-                )
-            }
+            } => (
+                line,
+                CommandKind::Module {
+                    module: get_module(filename, self),
+                    name,
+                },
+            ),
             json::Command::AssertReturn {
                 line,
                 action,
@@ -537,63 +534,54 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
                 line,
                 filename,
                 text,
-            } => {
-                (
-                    line,
-                    CommandKind::AssertInvalid {
-                        module: get_module(filename, self),
-                        message: text,
-                    },
-                )
-            }
+            } => (
+                line,
+                CommandKind::AssertInvalid {
+                    module: get_module(filename, self),
+                    message: text,
+                },
+            ),
             json::Command::AssertMalformed {
                 line,
                 filename,
                 text,
-            } => {
-                (
-                    line,
-                    CommandKind::AssertMalformed {
-                        module: get_module(filename, self),
-                        message: text,
-                    },
-                )
-            }
+            } => (
+                line,
+                CommandKind::AssertMalformed {
+                    module: get_module(filename, self),
+                    message: text,
+                },
+            ),
             json::Command::AssertUnlinkable {
                 line,
                 filename,
                 text,
-            } => {
-                (
-                    line,
-                    CommandKind::AssertUnlinkable {
-                        module: get_module(filename, self),
-                        message: text,
-                    },
-                )
-            }
+            } => (
+                line,
+                CommandKind::AssertUnlinkable {
+                    module: get_module(filename, self),
+                    message: text,
+                },
+            ),
             json::Command::AssertUninstantiable {
                 line,
                 filename,
                 text,
-            } => {
-                (
-                    line,
-                    CommandKind::AssertUninstantiable {
-                        module: get_module(filename, self),
-                        message: text,
-                    },
-                )
-            }
+            } => (
+                line,
+                CommandKind::AssertUninstantiable {
+                    module: get_module(filename, self),
+                    message: text,
+                },
+            ),
             json::Command::Register {
                 line,
                 name,
                 as_name,
             } => (line, CommandKind::Register { name, as_name }),
-            json::Command::Action { line, action } => (
-                line,
-                CommandKind::PerformAction(parse_action(&action)?),
-            ),
+            json::Command::Action { line, action } => {
+                (line, CommandKind::PerformAction(parse_action(&action)?))
+            }
         };
 
         Ok(Some(Command { line, kind }))

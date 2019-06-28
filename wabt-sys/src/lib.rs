@@ -22,7 +22,24 @@ pub enum Result {
 extern "C" {
     pub fn wabt_new_features() -> *mut Features;
 
-    // TODO: Actually set features.
+    pub fn wabt_exceptions_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_exceptions_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_mutable_globals_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_mutable_globals_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_sat_float_to_int_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_sat_float_to_int_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_sign_extension_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_sign_extension_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_simd_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_simd_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_threads_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_threads_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_multi_value_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_multi_value_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_tail_call_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_tail_call_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_bulk_memory_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_bulk_memory_enabled(features: *mut Features, enabled: c_int);
 
     pub fn wabt_destroy_features(features: *mut Features);
 
@@ -36,14 +53,10 @@ extern "C" {
 
     pub fn wabt_new_errors() -> *mut Errors;
 
-    pub fn wabt_format_text_errors(
-        errors: *mut Errors,
-        lexer: *mut WastLexer,
-    ) -> *mut OutputBuffer;
+    pub fn wabt_format_text_errors(errors: *mut Errors, lexer: *mut WastLexer)
+        -> *mut OutputBuffer;
 
-    pub fn wabt_format_binary_errors(
-        errors: *mut Errors,
-    ) -> *mut OutputBuffer;
+    pub fn wabt_format_binary_errors(errors: *mut Errors) -> *mut OutputBuffer;
 
     pub fn wabt_destroy_errors(errors: *mut Errors);
 
@@ -66,18 +79,11 @@ extern "C" {
 
     pub fn wabt_destroy_parse_wat_result(result: *mut WabtParseWatResult);
 
-    pub fn wabt_resolve_names_module(
-        module: *mut WasmModule,
-        errors: *mut Errors,
-    ) -> Result;
+    pub fn wabt_resolve_names_module(module: *mut WasmModule, errors: *mut Errors) -> Result;
 
-    pub fn wabt_apply_names_module(
-        module: *mut WasmModule,
-    ) -> Result;
+    pub fn wabt_apply_names_module(module: *mut WasmModule) -> Result;
 
-    pub fn wabt_generate_names_module(
-        module: *mut WasmModule,
-    ) -> Result;
+    pub fn wabt_generate_names_module(module: *mut WasmModule) -> Result;
 
     pub fn wabt_validate_module(
         module: *mut WasmModule,
@@ -85,9 +91,7 @@ extern "C" {
         erros: *mut Errors,
     ) -> Result;
 
-    pub fn wabt_destroy_module(
-        module: *mut WasmModule,
-    );
+    pub fn wabt_destroy_module(module: *mut WasmModule);
 
     pub fn wabt_write_binary_module(
         module: *mut WasmModule,
@@ -111,10 +115,7 @@ extern "C" {
 
     pub fn wabt_destroy_output_buffer(buffer: *mut OutputBuffer);
 
-    pub fn wabt_resolve_names_script(
-        script: *mut Script,
-        errors: *mut Errors,
-    ) -> Result;
+    pub fn wabt_resolve_names_script(script: *mut Script, errors: *mut Errors) -> Result;
 
     pub fn wabt_validate_script(
         script: *mut Script,
@@ -140,29 +141,19 @@ extern "C" {
         errors: *mut Errors,
     ) -> *mut WabtReadBinaryResult;
 
-    pub fn wabt_parse_wast_result_get_result(
-        result: *mut WabtParseWastResult,
-    ) -> Result;
+    pub fn wabt_parse_wast_result_get_result(result: *mut WabtParseWastResult) -> Result;
 
-    pub fn wabt_parse_wast_result_release_module(
-        result: *mut WabtParseWastResult,
-    ) -> *mut Script;
+    pub fn wabt_parse_wast_result_release_module(result: *mut WabtParseWastResult) -> *mut Script;
 
-    pub fn wabt_destroy_parse_wast_result(
-        result: *mut WabtParseWastResult,
-    );
+    pub fn wabt_destroy_parse_wast_result(result: *mut WabtParseWastResult);
 
-    pub fn wabt_read_binary_result_get_result(
-        result: *mut WabtReadBinaryResult,
-    ) -> Result;
+    pub fn wabt_read_binary_result_get_result(result: *mut WabtReadBinaryResult) -> Result;
 
     pub fn wabt_read_binary_result_release_module(
         result: *mut WabtReadBinaryResult,
     ) -> *mut WasmModule;
 
-    pub fn wabt_destroy_read_binary_result(
-        result: *mut WabtReadBinaryResult,
-    );
+    pub fn wabt_destroy_read_binary_result(result: *mut WabtReadBinaryResult);
 
     pub fn wabt_write_text_module(
         module: *mut WasmModule,
@@ -172,35 +163,29 @@ extern "C" {
 
     // WabtWriteScriptResult
 
-    pub fn wabt_write_script_result_get_result(
-        result: *mut WabtWriteScriptResult
-    ) -> Result;
+    pub fn wabt_write_script_result_get_result(result: *mut WabtWriteScriptResult) -> Result;
 
     pub fn wabt_write_script_result_release_json_output_buffer(
-        result: *mut WabtWriteScriptResult
+        result: *mut WabtWriteScriptResult,
     ) -> *mut OutputBuffer;
 
     pub fn wabt_write_script_result_release_log_output_buffer(
-        result: *mut WabtWriteScriptResult
+        result: *mut WabtWriteScriptResult,
     ) -> *mut OutputBuffer;
 
-    pub fn wabt_write_script_result_get_module_count(
-        result: *mut WabtWriteScriptResult
-    ) -> usize;
+    pub fn wabt_write_script_result_get_module_count(result: *mut WabtWriteScriptResult) -> usize;
 
     pub fn wabt_write_script_result_get_module_filename(
         result: *mut WabtWriteScriptResult,
-        index: usize
+        index: usize,
     ) -> *const c_char;
 
     pub fn wabt_write_script_result_release_module_output_buffer(
         result: *mut WabtWriteScriptResult,
-        index: usize
+        index: usize,
     ) -> *mut OutputBuffer;
 
-    pub fn wabt_destroy_write_script_result(
-        result: *mut WabtWriteScriptResult
-    );
+    pub fn wabt_destroy_write_script_result(result: *mut WabtWriteScriptResult);
 }
 
 #[test]
@@ -209,19 +194,13 @@ fn parse_wasm() {
 
     let data: &[u8] = &[
         0, 97, 115, 109, // \0ASM - magic
-        1, 0, 0, 0       //    01 - version
+        1, 0, 0, 0, //    01 - version
     ];
 
     unsafe {
         let errors = wabt_new_errors();
         let features = wabt_new_features();
-        let result = wabt_read_binary(
-            data.as_ptr(),
-            data.len(),
-            true as c_int,
-            features,
-            errors,
-        );
+        let result = wabt_read_binary(data.as_ptr(), data.len(), true as c_int, features, errors);
         assert_eq!(wabt_read_binary_result_get_result(result), Result::Ok);
         let module = wabt_read_binary_result_release_module(result);
 
