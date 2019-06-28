@@ -25,15 +25,13 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", out_build_dir.display());
 
     // help cargo find wabt.lib when targeting windows
-    #[cfg(windows)] {
+    #[cfg(windows)]
+    {
         let pattern = format!("{}/*/wabt.lib", out_build_dir.display());
         for entry in glob::glob(&pattern).unwrap() {
             if let Ok(path) = entry {
                 let out_lib_dir = path.parent().unwrap().to_path_buf();
-                println!(
-                    "cargo:rustc-link-search=native={}",
-                    out_lib_dir.display(),
-                );
+                println!("cargo:rustc-link-search=native={}", out_lib_dir.display());
                 break;
             }
         }
