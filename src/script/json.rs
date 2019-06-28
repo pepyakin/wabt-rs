@@ -65,7 +65,11 @@ pub enum Command {
         text: String,
     },
     #[serde(rename = "assert_exhaustion")]
-    AssertExhaustion { line: u64, action: Action },
+    AssertExhaustion {
+        line: u64,
+        action: Action,
+        text: String,
+    },
     #[serde(rename = "assert_unlinkable")]
     AssertUnlinkable {
         line: u64,

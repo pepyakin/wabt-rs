@@ -377,6 +377,8 @@ pub enum CommandKind<F32 = f32, F64 = f64> {
     AssertExhaustion {
         /// Action to perform.
         action: Action<F32, F64>,
+        /// Expected failure should be with this message.
+        message: String,
     },
     /// Assert that specified module fails to link.
     AssertUnlinkable {
@@ -517,10 +519,11 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
                     action: parse_action(&action)?,
                 },
             ),
-            json::Command::AssertExhaustion { line, action } => (
+            json::Command::AssertExhaustion { line, action, text } => (
                 line,
                 CommandKind::AssertExhaustion {
                     action: parse_action(&action)?,
+                    message: text,
                 },
             ),
             json::Command::AssertTrap { line, action, text } => (
@@ -585,5 +588,49 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
         };
 
         Ok(Some(Command { line, kind }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::wat2wasm;
+
+    #[test]
+    fn assert_exhaustion() {
+        const EXHAUSTION: &str = r#"
+(module
+  (func (export "foo")
+    call 0))
+
+(assert_exhaustion (invoke "foo") "so exhausted")
+"#;
+        let mut script = ScriptParser::<f32, f64>::from_str(EXHAUSTION).unwrap();
+        assert_eq!(
+            script.next().unwrap().unwrap(),
+            Command {
+                line: 2,
+                kind: CommandKind::Module {
+                    module: ModuleBinary::from_vec(
+                        wat2wasm(r#"(func (export "foo") call 0)"#).unwrap()
+                    ),
+                    name: None,
+                },
+            }
+        );
+        assert_eq!(
+            script.next().unwrap().unwrap(),
+            Command {
+                line: 6,
+                kind: CommandKind::AssertExhaustion {
+                    action: Action::Invoke {
+                        module: None,
+                        field: "foo".into(),
+                        args: vec![],
+                    },
+                    message: "so exhausted".into(),
+                },
+            }
+        );
     }
 }
