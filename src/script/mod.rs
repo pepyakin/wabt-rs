@@ -78,7 +78,7 @@ use std::vec;
 
 use serde_json;
 
-use super::{Error as WabtError, Script, WabtBuf, WabtWriteScriptResult};
+use super::{Error as WabtError, Features, Script, WabtBuf, WabtWriteScriptResult};
 
 mod json;
 
@@ -285,8 +285,12 @@ fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(
     Ok(action)
 }
 
-fn wast2json(source: &[u8], test_filename: &str) -> Result<WabtWriteScriptResult, Error> {
-    let script = Script::parse(test_filename, source)?;
+fn wast2json(
+    source: &[u8],
+    test_filename: &str,
+    features: Features,
+) -> Result<WabtWriteScriptResult, Error> {
+    let script = Script::parse(test_filename, source, features.clone())?;
     script.resolve_names()?;
     script.validate()?;
     let result = script.write_binaries(test_filename)?;
@@ -429,7 +433,11 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
     /// The `source` should contain valid wast.
     ///
     /// The `test_filename` must have a `.wast` extension.
-    pub fn from_source_and_name(source: &[u8], test_filename: &str) -> Result<Self, Error> {
+    pub fn from_source_and_name(
+        source: &[u8],
+        test_filename: &str,
+        features: Features,
+    ) -> Result<Self, Error> {
         if !test_filename.ends_with(".wast") {
             return Err(Error::Other(format!(
                 "Provided {} should have .wast extension",
@@ -440,7 +448,7 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
         // Convert wasm script into json spec and binaries. The output artifacts
         // will be placed in result.
 
-        let results = wast2json(source, test_filename)?;
+        let results = wast2json(source, test_filename, features.clone())?;
         let results = results.take_all().expect("Failed to release");
 
         let json_str = results.json_output_buffer.as_ref();
@@ -459,7 +467,7 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
 
     /// Create `ScriptParser` from the script source.
     pub fn from_str(source: &str) -> Result<Self, Error> {
-        ScriptParser::from_source_and_name(source.as_bytes(), "test.wast")
+        ScriptParser::from_source_and_name(source.as_bytes(), "test.wast", Features::new())
     }
 
     /// Returns the next [`Command`] from the script.
