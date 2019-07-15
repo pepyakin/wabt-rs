@@ -1062,7 +1062,7 @@ pub fn wasm2wat<S: AsRef<[u8]>>(wasm: S) -> Result<String, Error> {
     wasm2wat_with_features(wasm, Features::new())
 }
 
-/// Disassemble wasm binary to wasm text format.
+/// Disassemble wasm binary to wasm text format with the given features.
 ///
 /// # Examples
 ///
