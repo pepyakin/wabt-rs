@@ -433,7 +433,17 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
     /// The `source` should contain valid wast.
     ///
     /// The `test_filename` must have a `.wast` extension.
-    pub fn from_source_and_name(
+    pub fn from_source_and_name(source: &[u8], test_filename: &str) -> Result<Self, Error> {
+        ScriptParser::from_source_and_name_with_features(source, test_filename, Features::new())
+    }
+
+    /// Create `ScriptParser` from the script in specified file, parsing with
+    /// the given features.
+    ///
+    /// The `source` should contain valid wast.
+    ///
+    /// The `test_filename` must have a `.wast` extension.
+    pub fn from_source_and_name_with_features(
         source: &[u8],
         test_filename: &str,
         features: Features,
@@ -467,7 +477,7 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
 
     /// Create `ScriptParser` from the script source.
     pub fn from_str(source: &str) -> Result<Self, Error> {
-        ScriptParser::from_source_and_name(source.as_bytes(), "test.wast", Features::new())
+        ScriptParser::from_source_and_name(source.as_bytes(), "test.wast")
     }
 
     /// Returns the next [`Command`] from the script.
