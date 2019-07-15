@@ -488,12 +488,14 @@ impl Default for WriteTextOptions {
 
 /// Options for reading read binary.
 pub struct ReadBinaryOptions {
+    features: Features,
     read_debug_names: bool,
 }
 
 impl Default for ReadBinaryOptions {
     fn default() -> ReadBinaryOptions {
         ReadBinaryOptions {
+            features: Features::new(),
             read_debug_names: false,
         }
     }
@@ -638,7 +640,6 @@ impl Module {
         options: &ReadBinaryOptions,
     ) -> Result<Module, Error> {
         let errors = Errors::new();
-        let features = Features::new();
         let result = {
             let wasm = wasm.as_ref();
             let raw_result = unsafe {
@@ -646,7 +647,7 @@ impl Module {
                     wasm.as_ptr(),
                     wasm.len(),
                     options.read_debug_names as c_int,
-                    features.raw,
+                    options.features.raw,
                     errors.raw,
                 )
             };
@@ -655,7 +656,7 @@ impl Module {
         match result.take_module() {
             Ok(module) => Ok(Module {
                 raw_module: module,
-                features,
+                features: options.features.clone(),
                 lexer: None,
             }),
             Err(()) => {
@@ -875,6 +876,12 @@ impl Wasm2Wat {
         }
     }
 
+    /// Support for pre-standard features.
+    pub fn features(&mut self, features: Features) -> &mut Wasm2Wat {
+        self.read_binary_options.features = features;
+        self
+    }
+
     /// Read debug names in the binary file.
     ///
     /// `false` by default.
@@ -1052,7 +1059,35 @@ pub fn wat2wasm_with_features<S: AsRef<[u8]>>(
 /// ```
 ///
 pub fn wasm2wat<S: AsRef<[u8]>>(wasm: S) -> Result<String, Error> {
-    let result_buf = Wasm2Wat::new().convert(wasm)?;
+    wasm2wat_with_features(wasm, Features::new())
+}
+
+/// Disassemble wasm binary to wasm text format.
+///
+/// # Examples
+///
+/// ```rust
+/// extern crate wabt;
+/// use wabt::{Features, wasm2wat_with_features};
+///
+/// fn main() {
+///     let mut features = Features::new();
+///     features.enable_simd();
+///     assert_eq!(
+///         wasm2wat_with_features(&[
+///             0, 97, 115, 109, // \0ASM - magic
+///             1, 0, 0, 0       //    01 - version
+///         ], features),
+///         Ok("(module)\n".to_owned()),
+///     );
+/// }
+/// ```
+///
+pub fn wasm2wat_with_features<S: AsRef<[u8]>>(
+    wasm: S,
+    features: Features,
+) -> Result<String, Error> {
+    let result_buf = Wasm2Wat::new().features(features).convert(wasm)?;
     let text = String::from_utf8(result_buf.as_ref().to_vec())
         .map_err(|_| Error(ErrorKind::NonUtf8Result))?;
     Ok(text)
