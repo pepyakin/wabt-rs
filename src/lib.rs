@@ -537,10 +537,13 @@ struct Script {
 }
 
 impl Script {
-    fn parse<S: AsRef<[u8]>>(filename: &str, source: S) -> Result<Script, Error> {
+    fn parse<S: AsRef<[u8]>>(
+        filename: &str,
+        source: S,
+        features: Features,
+    ) -> Result<Script, Error> {
         let lexer = Lexer::new(filename, source.as_ref())?;
         let errors = Errors::new();
-        let features = Features::new();
         match parse_wast(&lexer, &features, &errors).take_script() {
             Ok(raw_script) => Ok(Script {
                 raw_script,
