@@ -179,6 +179,8 @@ pub enum Value<F32 = f32, F64 = f64> {
     F32(F32),
     /// 64-bit floating point number.
     F64(F64),
+    /// 128-bit vector.
+    V128(u128),
 }
 
 impl<F32: FromBits<u32>, F64: FromBits<u64>> Value<F32, F64> {
@@ -238,6 +240,10 @@ fn parse_value<F32: FromBits<u32>, F64: FromBits<u64>>(
         "f64" => {
             let unsigned: u64 = parse_val(&test_val.value, &test_val.value_type)?;
             Value::decode_f64(unsigned)
+        }
+        "v128" => {
+            let unsigned: u128 = parse_val(&test_val.value, &test_val.value_type)?;
+            Value::V128(unsigned)
         }
         other_ty => {
             return Err(Error::Other(format!("Unknown type '{}'", other_ty)));
