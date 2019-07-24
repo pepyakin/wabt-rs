@@ -78,7 +78,7 @@ use std::vec;
 
 use serde_json;
 
-use super::{Error as WabtError, Script, WabtBuf, WabtWriteScriptResult};
+use super::{Error as WabtError, Features, Script, WabtBuf, WabtWriteScriptResult};
 
 mod json;
 
@@ -179,6 +179,8 @@ pub enum Value<F32 = f32, F64 = f64> {
     F32(F32),
     /// 64-bit floating point number.
     F64(F64),
+    /// 128-bit vector.
+    V128(u128),
 }
 
 impl<F32: FromBits<u32>, F64: FromBits<u64>> Value<F32, F64> {
@@ -239,6 +241,10 @@ fn parse_value<F32: FromBits<u32>, F64: FromBits<u64>>(
             let unsigned: u64 = parse_val(&test_val.value, &test_val.value_type)?;
             Value::decode_f64(unsigned)
         }
+        "v128" => {
+            let unsigned: u128 = parse_val(&test_val.value, &test_val.value_type)?;
+            Value::V128(unsigned)
+        }
         other_ty => {
             return Err(Error::Other(format!("Unknown type '{}'", other_ty)));
         }
@@ -285,8 +291,12 @@ fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(
     Ok(action)
 }
 
-fn wast2json(source: &[u8], test_filename: &str) -> Result<WabtWriteScriptResult, Error> {
-    let script = Script::parse(test_filename, source)?;
+fn wast2json(
+    source: &[u8],
+    test_filename: &str,
+    features: Features,
+) -> Result<WabtWriteScriptResult, Error> {
+    let script = Script::parse(test_filename, source, features.clone())?;
     script.resolve_names()?;
     script.validate()?;
     let result = script.write_binaries(test_filename)?;
@@ -432,6 +442,20 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
     ///
     /// The `test_filename` must have a `.wast` extension.
     pub fn from_source_and_name(source: &[u8], test_filename: &str) -> Result<Self, Error> {
+        ScriptParser::from_source_and_name_with_features(source, test_filename, Features::new())
+    }
+
+    /// Create `ScriptParser` from the script in specified file, parsing with
+    /// the given features.
+    ///
+    /// The `source` should contain valid wast.
+    ///
+    /// The `test_filename` must have a `.wast` extension.
+    pub fn from_source_and_name_with_features(
+        source: &[u8],
+        test_filename: &str,
+        features: Features,
+    ) -> Result<Self, Error> {
         if !test_filename.ends_with(".wast") {
             return Err(Error::Other(format!(
                 "Provided {} should have .wast extension",
@@ -442,7 +466,7 @@ impl<F32: FromBits<u32>, F64: FromBits<u64>> ScriptParser<F32, F64> {
         // Convert wasm script into json spec and binaries. The output artifacts
         // will be placed in result.
 
-        let results = wast2json(source, test_filename)?;
+        let results = wast2json(source, test_filename, features.clone())?;
         let results = results.take_all().expect("Failed to release");
 
         let json_str = results.json_output_buffer.as_ref();
