@@ -122,7 +122,7 @@ impl error::Error for Error {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::IoError(ref io_err) => Some(io_err),
             Error::WabtError(ref wabt_err) => Some(wabt_err),
