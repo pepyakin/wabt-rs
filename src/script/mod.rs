@@ -258,15 +258,6 @@ fn parse_value_list<F32: FromBits<u32>, F64: FromBits<u64>>(
     test_vals.iter().map(parse_value).collect()
 }
 
-// Convert json string to correct rust UTF8 string.
-// The reason is that, for example, rust character "\u{FEEF}" (3-byte UTF8 BOM) is represented as "\u00ef\u00bb\u00bf" in spec json.
-// It is incorrect. Correct BOM representation in json is "\uFEFF" => we need to do a double utf8-parse here.
-// This conversion is incorrect in general case (casting char to u8)!!!
-fn jstring_to_rstring(jstring: &str) -> String {
-    let jstring_chars: Vec<u8> = jstring.chars().map(|c| c as u8).collect();
-    String::from_utf8(jstring_chars).unwrap()
-}
-
 fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(
     test_action: &json::Action,
 ) -> Result<Action<F32, F64>, Error> {
@@ -277,7 +268,7 @@ fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(
             ref args,
         } => Action::Invoke {
             module: module.to_owned(),
-            field: jstring_to_rstring(field),
+            field: field.to_owned(),
             args: parse_value_list(args)?,
         },
         json::Action::Get {
@@ -285,7 +276,7 @@ fn parse_action<F32: FromBits<u32>, F64: FromBits<u64>>(
             ref field,
         } => Action::Get {
             module: module.to_owned(),
-            field: jstring_to_rstring(field),
+            field: field.to_owned(),
         },
     };
     Ok(action)
@@ -656,5 +647,37 @@ mod tests {
                 },
             }
         );
+    }
+
+    #[test]
+    fn utf8_handling() {
+        // See https://github.com/pepyakin/wabt-rs/issues/50
+        let wast = r#"
+            (module
+                ;; Test that names are case-sensitive.
+                (func (export "a") (result i32) (i32.const 13))
+                (func (export "A") (result i32) (i32.const 14))
+
+                ;; Test that UTF-8 BOM code points can appear in identifiers.
+                (func (export "﻿") (result i32) (i32.const 15))
+
+                ;; Test that Unicode normalization is not applied. These function names
+                ;; contain different codepoints which normalize to the same thing under
+                ;; NFC or NFD.
+                (func (export "Å") (result i32) (i32.const 16))
+                (func (export "Å") (result i32) (i32.const 17))
+                (func (export "Å") (result i32) (i32.const 18))
+            )
+
+            (assert_return (invoke "a") (i32.const 13))
+            (assert_return (invoke "A") (i32.const 14))
+            (assert_return (invoke "﻿") (i32.const 15))
+            (assert_return (invoke "Å") (i32.const 16))
+            (assert_return (invoke "Å") (i32.const 17))
+            (assert_return (invoke "Å") (i32.const 18))
+        "#;
+
+        let mut parser: ScriptParser = ScriptParser::from_str(wast).unwrap();
+        while let Some(Command { .. }) = parser.next().unwrap() {}
     }
 }
