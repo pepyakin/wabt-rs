@@ -159,6 +159,8 @@ impl Clone for Features {
         new.set_multi_value_enabled(self.multi_value_enabled());
         new.set_tail_call_enabled(self.tail_call_enabled());
         new.set_bulk_memory_enabled(self.bulk_memory_enabled());
+        new.set_reference_types_enabled(self.reference_types_enabled());
+        new.set_annotations_enabled(self.annotations_enabled());
         new
     }
 }
@@ -180,6 +182,8 @@ impl Features {
         self.enable_multi_value();
         self.enable_tail_call();
         self.enable_bulk_memory();
+        self.enable_reference_types();
+        self.enable_annotations();
     }
 
     pub fn exceptions_enabled(&self) -> bool {
@@ -314,6 +318,36 @@ impl Features {
     pub fn set_bulk_memory_enabled(&mut self, value: bool) {
         unsafe {
             ffi::wabt_set_bulk_memory_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn reference_types_enabled(&self) -> bool {
+        unsafe { ffi::wabt_reference_types_enabled(self.raw) }
+    }
+    pub fn enable_reference_types(&mut self) {
+        self.set_reference_types_enabled(true);
+    }
+    pub fn disable_reference_types(&mut self) {
+        self.set_reference_types_enabled(false);
+    }
+    pub fn set_reference_types_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_reference_types_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn annotations_enabled(&self) -> bool {
+        unsafe { ffi::wabt_annotations_enabled(self.raw) }
+    }
+    pub fn enable_annotations(&mut self) {
+        self.set_annotations_enabled(true);
+    }
+    pub fn disable_annotations(&mut self) {
+        self.set_annotations_enabled(false);
+    }
+    pub fn set_annotations_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_annotations_enabled(self.raw, value.into());
         }
     }
 }
