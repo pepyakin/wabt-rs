@@ -40,6 +40,10 @@ extern "C" {
     pub fn wabt_set_tail_call_enabled(features: *mut Features, enabled: c_int);
     pub fn wabt_bulk_memory_enabled(features: *const Features) -> bool;
     pub fn wabt_set_bulk_memory_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_reference_types_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_reference_types_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_annotations_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_annotations_enabled(features: *mut Features, enabled: c_int);
 
     pub fn wabt_destroy_features(features: *mut Features);
 
