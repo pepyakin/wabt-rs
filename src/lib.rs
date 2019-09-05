@@ -25,6 +25,13 @@ pub mod script;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error(ErrorKind);
 
+impl Error {
+    /// Returns the `ErrorKind` for this Error.
+    pub fn kind(&self) -> &ErrorKind {
+        &self.0
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // TODO: A better formatting
