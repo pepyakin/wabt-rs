@@ -6,6 +6,9 @@ extern crate glob;
 use std::env;
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=WABT_CXXSTDLIB");
+    println!("cargo:rerun-if-env-changed=CXXSTDLIB");
+
     let dst = cmake::Config::new("wabt")
         // Turn off building tests and tools. This not only speeds up the build but
         // also prevents building executables that for some reason are put
@@ -41,7 +44,10 @@ fn main() {
 
     // We need to link against C++ std lib
     if let Some(cpp_stdlib) = get_cpp_stdlib() {
-        println!("cargo:rustc-link-lib={}", cpp_stdlib);
+        // If a empty library name is specified, then do not link against the stdlib.
+        if !cpp_stdlib.is_empty() {
+            println!("cargo:rustc-link-lib={}", cpp_stdlib);
+        }
     }
 
     let mut cfg = cc::Build::new();
@@ -58,8 +64,23 @@ fn main() {
         .compile("wabt_shim");
 }
 
-// See https://github.com/alexcrichton/gcc-rs/blob/88ac58e25/src/lib.rs#L1197
+/// Returns the C++ stdlib to link against specified by an environment variable. If the env vars
+/// are not passed, it tries to autodetect.
+///
+/// The environment variables are `WABT_CXXSTDLIB` and `CXXSTDLIB` (in the priority order). If a
+/// variable exists but is empty it is returned as is. In case if a variable is not valid unicode
+/// it is skipped.
+///
+/// Adapted from:
+/// https://github.com/alexcrichton/cc-rs/blob/0eeafcc9/src/lib.rs#L2194
 fn get_cpp_stdlib() -> Option<String> {
+    if let Some(specified_stdlib) = env::var("WABT_CXXSTDLIB")
+        .or_else(|_| env::var("CXXSTDLIB"))
+        .ok()
+    {
+        return Some(specified_stdlib);
+    }
+
     env::var("TARGET").ok().and_then(|target| {
         if target.contains("msvc") {
             None
