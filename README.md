@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/wabt.svg)](https://crates.io/crates/wabt)
 [![docs.rs](https://docs.rs/wabt/badge.svg)](https://docs.rs/wabt/)
 
-Rust bindings for [WABT](https://github.com/WebAssembly/wabt). Work in progress.
+Rust bindings for [WABT](https://github.com/WebAssembly/wabt).
 
 ## Usage
 
@@ -14,9 +14,9 @@ Add this to your `Cargo.toml`:
 wabt = "0.9.0"
 ```
 
-## Example
+## Use cases
 
-`wat2wasm` (previously known as `wast2wasm`):
+Assemble a given program in WebAssembly text format (aka wat) and translate it into binary.
 
 ```rust
 extern crate wabt;
@@ -33,7 +33,7 @@ fn main() {
 }
 ```
 
-`wasm2wat`:
+or disassemble a wasm binary into the text format.
 
 ```rust
 extern crate wabt;
@@ -53,10 +53,10 @@ fn main() {
 
 ```rust
 use wabt::script::{ScriptParser, Command, CommandKind, Action, Value};
- 
+
 let wast = r#"
 ;; Define anonymous module with function export named `sub`.
-(module 
+(module
   (func (export "sub") (param $x i32) (param $y i32) (result i32)
     ;; return x - y;
     (i32.sub
@@ -64,7 +64,7 @@ let wast = r#"
     )
   )
 )
- 
+
 ;; Assert that invoking export `sub` with parameters (8, 3)
 ;; should return 5.
 (assert_return
@@ -74,20 +74,20 @@ let wast = r#"
   (i32.const 5)
 )
 "#;
- 
+
 let mut parser = ScriptParser::from_str(wast)?;
-while let Some(Command { kind, .. }) = parser.next()? { 
+while let Some(Command { kind, .. }) = parser.next()? {
     match kind {
         CommandKind::Module { module, name } => {
             // The module is declared as annonymous.
             assert_eq!(name, None);
- 
+
             // Convert the module into the binary representation and check the magic number.
             let module_binary = module.into_vec()?;
             assert_eq!(&module_binary[0..4], &[0, 97, 115, 109]);
         }
         CommandKind::AssertReturn { action, expected } => {
-            assert_eq!(action, Action::Invoke { 
+            assert_eq!(action, Action::Invoke {
                 module: None,
                 field: "sub".to_string(),
                 args: vec![
@@ -101,3 +101,13 @@ while let Some(Command { kind, .. }) = parser.next()? {
     }
 }
 ```
+
+# Alternatives
+
+You might find [`wat`](https://crates.io/crates/wat) or [`wast`](https://crates.io/crates/wast)
+crate useful if you only want to parse `.wat` or `.wast` source. The advantage of using them is that
+they are implemented completely in Rust. Moreover, [`wast`](https://crates.io/crates/wast) among other things
+allows you to add your own extensions to WebAssembly text format.
+
+For print the text representation of a wasm binary, [`wasmprinter`](https://crates.io/crates/wasmprinter)
+can work better for you, since it is implemented completely in Rust.
