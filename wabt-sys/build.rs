@@ -9,18 +9,34 @@ fn main() {
     println!("cargo:rerun-if-env-changed=WABT_CXXSTDLIB");
     println!("cargo:rerun-if-env-changed=CXXSTDLIB");
 
-    let dst = cmake::Config::new("wabt")
-        // Turn off building tests and tools. This not only speeds up the build but
-        // also prevents building executables that for some reason are put
-        // into the `wabt` directory which now is deemed as an error.
-        //
-        // Since that is all targets available, also don't specify target
-        // (by default it is set to `--target install`).
-        // Otherwise, there will be an error message "No rule to make target `install'".
-        .define("BUILD_TESTS", "OFF")
+    let mut cfg = cmake::Config::new("wabt");
+    // Turn off building tests and tools. This not only speeds up the build but
+    // also prevents building executables that for some reason are put
+    // into the `wabt` directory which now is deemed as an error.
+    //
+    // Since that is all targets available, also don't specify target
+    // (by default it is set to `--target install`).
+    // Otherwise, there will be an error message "No rule to make target `install'".
+    cfg.define("BUILD_TESTS", "OFF")
         .define("BUILD_TOOLS", "OFF")
-        .no_build_target(true)
-        .build();
+        .no_build_target(true);
+
+    let target_os = env::var("CARGO_CFG_TARGET_OS").expect("Can't get the target OS!");
+    if target_os == "android" {
+        let android_ndk_home = env::var("ANDROID_NDK_HOME").expect("Can't get ANDROID_NDK_HOME!");
+        let toolchain = format!("{}/build/cmake/android.toolchain.cmake", android_ndk_home);
+        let target_arch = env::var("CARGO_CFG_TARGET_ARCH")
+            .expect("Can't get the target architecture of Android!");
+        let target_abi = match &*target_arch {
+            "aarch64" => "arm64-v8a",
+            "arm" => "armeabi-v7a",
+            _ => &*target_arch,
+        };
+        cfg.define("CMAKE_TOOLCHAIN_FILE", toolchain)
+            .define("ANDROID_ABI", target_abi);
+    };
+
+    let dst = cfg.build();
 
     let mut out_build_dir = dst;
     out_build_dir.push("build");
@@ -87,6 +103,8 @@ fn get_cpp_stdlib() -> Option<String> {
         } else if target.contains("darwin") {
             Some("c++".to_string())
         } else if target.contains("freebsd") {
+            Some("c++".to_string())
+        } else if target.contains("android") {
             Some("c++".to_string())
         } else if target.contains("musl") {
             Some("static=stdc++".to_string())
