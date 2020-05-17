@@ -75,15 +75,15 @@ let wast = r#"
 )
 "#;
 
-let mut parser = ScriptParser::from_str(wast)?;
+let mut parser = ScriptParser::<f32, f64>::from_str(wast)?;
 while let Some(Command { kind, .. }) = parser.next()? {
     match kind {
         CommandKind::Module { module, name } => {
-            // The module is declared as annonymous.
+            // The module is declared as anonymous.
             assert_eq!(name, None);
 
             // Convert the module into the binary representation and check the magic number.
-            let module_binary = module.into_vec()?;
+            let module_binary = module.into_vec();
             assert_eq!(&module_binary[0..4], &[0, 97, 115, 109]);
         }
         CommandKind::AssertReturn { action, expected } => {
