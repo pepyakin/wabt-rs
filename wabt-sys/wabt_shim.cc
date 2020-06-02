@@ -10,4 +10,10 @@ wabt::Result::Enum wabt_resolve_names_script(
   return ResolveNamesScript(script, errors);
 }
 
+wabt::Result::Enum wabt_resolve_names_module(
+    wabt::Module* module,
+    wabt::Errors* errors) {
+  return ResolveNamesModule(module, errors);
+}
+
 }
