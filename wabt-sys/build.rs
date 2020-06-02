@@ -66,6 +66,9 @@ fn main() {
         }
     }
 
+    println!("cargo:rerun-if-changed=wabt_shim.cc");
+    println!("cargo:rerun-if-changed=wabt/src/emscripten-helpers.cc");
+
     let mut cfg = cc::Build::new();
     cfg.file("wabt/src/emscripten-helpers.cc")
         .file("wabt_shim.cc")
