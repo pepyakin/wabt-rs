@@ -8,6 +8,7 @@ homepage = "https://github.com/pepyakin/wabt-rs"
 description = "Bindings to the wabt library"
 categories = ["external-ffi-bindings"]
 keywords = ["tools", "webassembly", "wasm"]
+edition = "2018"
 
 [build-dependencies]
 cmake = "0.1.32"
