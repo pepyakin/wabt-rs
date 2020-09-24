@@ -4,10 +4,22 @@ extern crate cmake;
 extern crate glob;
 
 use std::env;
+use std::path::Path;
+use std::process;
 
 fn main() {
     println!("cargo:rerun-if-env-changed=WABT_CXXSTDLIB");
     println!("cargo:rerun-if-env-changed=CXXSTDLIB");
+
+    let cmake_lists = Path::new("wabt/CMakeLists.txt");
+    if !cmake_lists.exists() {
+        eprintln!(
+            "{} doesn't exist. Perhaps, you need to update git submodules?\n\nTry\n\n\t\
+git submodule update --init --recursive",
+            cmake_lists.display(),
+        );
+        process::exit(1);
+    }
 
     let mut cfg = cmake::Config::new("wabt");
     // Turn off building tests and tools. This not only speeds up the build but
