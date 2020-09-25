@@ -113,15 +113,6 @@ impl fmt::Display for Error {
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::IoError(ref e) => e.description(),
-            Error::WabtError(_) => "wabt error",
-            Error::Other(ref msg) => &msg,
-            Error::WithLineInfo { ref error, .. } => error.description(),
-        }
-    }
-
     fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::IoError(ref io_err) => Some(io_err),

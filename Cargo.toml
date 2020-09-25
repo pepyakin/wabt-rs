@@ -9,6 +9,7 @@ homepage = "https://github.com/pepyakin/wabt-rs"
 description = "Bindings to the wabt library"
 categories = ["api-bindings"]
 keywords = ["tools", "webassembly", "wasm"]
+edition = "2018"
 
 [dependencies]
 wabt-sys = { path = "wabt-sys", version = "0.8" }
