@@ -91,7 +91,7 @@ git submodule update --init --recursive",
         .cpp_link_stdlib(None)
         .warnings(false)
         .cpp(true)
-        .flag("-std=c++11")
+        .flag("-std=c++17")
         .compile("wabt_shim");
 }
 

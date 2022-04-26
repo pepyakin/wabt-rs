@@ -1218,18 +1218,30 @@ impl Drop for WabtWriteScriptResult {
 }
 
 #[test]
-fn features() {
+fn features_wasm_simd_enabled() {
+    // simd is enabled by default.
     let example_wat = r#"
 (module
   (func $simd (result v128)
     (v128.const i8x16 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
     return)
 )"#;
+    assert!(wat2wasm(example_wat).is_ok());
+}
+
+#[test]
+fn features_wasm_features_annotations_disabled() {
+    let example_wat = r#"
+    (module
+        (func (@name "some func") (result i32)
+          i32.const 42
+          return)
+    )"#;
 
     assert!(wat2wasm(example_wat).is_err());
 
     let mut features = Features::new();
-    features.enable_simd();
+    features.enable_annotations();
     assert!(wat2wasm_with_features(example_wat, features).is_ok());
 }
 
@@ -1242,7 +1254,7 @@ fn module() {
   (memory (data "hi"))
   (type (func (param i32) (result i32)))
   (start 1)
-  (table 0 1 anyfunc)
+  (table 0 1 funcref)
   (func)
   (func (type 1)
     i32.const 42
