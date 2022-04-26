@@ -25,8 +25,11 @@ jobs:
       with:
         command: check
         
-  test-linux-amd64:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
     - uses: actions/checkout@v3
       with:
@@ -39,21 +42,6 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: test
-    
-  test-windows:
-      runs-on: windows-latest
-      steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: 'recursive'
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
 
   fmt:
     name: cargo-fmt
