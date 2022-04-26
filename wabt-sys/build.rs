@@ -82,6 +82,12 @@ git submodule update --init --recursive",
     println!("cargo:rerun-if-changed=wabt/src/emscripten-helpers.cc");
 
     let mut cfg = cc::Build::new();
+    if cfg.get_compiler().is_like_msvc() {
+        cfg.flag("/std:c++17");
+    } else {
+        cfg.flag("-std=c++17");
+    }
+
     cfg.file("wabt/src/emscripten-helpers.cc")
         .file("wabt_shim.cc")
         .include("wabt")
@@ -91,7 +97,6 @@ git submodule update --init --recursive",
         .cpp_link_stdlib(None)
         .warnings(false)
         .cpp(true)
-        .flag("-std=c++11")
         .compile("wabt_shim");
 }
 
