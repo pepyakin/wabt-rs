@@ -34,6 +34,8 @@ extern "C" {
     pub fn wabt_set_simd_enabled(features: *mut Features, enabled: c_int);
     pub fn wabt_threads_enabled(features: *const Features) -> bool;
     pub fn wabt_set_threads_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_function_references_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_function_references_enabled(features: *const Features, enabled: c_int);
     pub fn wabt_multi_value_enabled(features: *const Features) -> bool;
     pub fn wabt_set_multi_value_enabled(features: *mut Features, enabled: c_int);
     pub fn wabt_tail_call_enabled(features: *const Features) -> bool;
@@ -44,6 +46,14 @@ extern "C" {
     pub fn wabt_set_reference_types_enabled(features: *mut Features, enabled: c_int);
     pub fn wabt_annotations_enabled(features: *const Features) -> bool;
     pub fn wabt_set_annotations_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_gc_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_gc_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_memory64_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_memory64_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_multi_memory_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_multi_memory_enabled(features: *mut Features, enabled: c_int);
+    pub fn wabt_extended_const_enabled(features: *const Features) -> bool;
+    pub fn wabt_set_extended_const_enabled(features: *mut Features, enabled: c_int);
 
     pub fn wabt_destroy_features(features: *mut Features);
 

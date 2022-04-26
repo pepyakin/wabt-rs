@@ -186,11 +186,16 @@ impl Features {
         self.enable_sign_extension();
         self.enable_simd();
         self.enable_threads();
+        self.enable_function_references();
         self.enable_multi_value();
         self.enable_tail_call();
         self.enable_bulk_memory();
         self.enable_reference_types();
         self.enable_annotations();
+        self.enable_gc();
+        self.enable_memory64();
+        self.enable_multi_memory();
+        self.enable_extended_const();
     }
 
     pub fn exceptions_enabled(&self) -> bool {
@@ -283,6 +288,21 @@ impl Features {
         }
     }
 
+    pub fn function_references_enabled(&self) -> bool {
+        unsafe { ffi::wabt_function_references_enabled(self.raw) }
+    }
+    pub fn enable_function_references(&mut self) {
+        self.set_function_references_enabled(true);
+    }
+    pub fn disable_function_references(&mut self) {
+        self.set_function_references_enabled(false);
+    }
+    pub fn set_function_references_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_function_references_enabled(self.raw, value.into());
+        }
+    }
+
     pub fn multi_value_enabled(&self) -> bool {
         unsafe { ffi::wabt_multi_value_enabled(self.raw) }
     }
@@ -355,6 +375,66 @@ impl Features {
     pub fn set_annotations_enabled(&mut self, value: bool) {
         unsafe {
             ffi::wabt_set_annotations_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn gc_enabled(&self) -> bool {
+        unsafe { ffi::wabt_gc_enabled(self.raw) }
+    }
+    pub fn enable_gc(&mut self) {
+        self.set_gc_enabled(true);
+    }
+    pub fn disable_gc(&mut self) {
+        self.set_gc_enabled(false);
+    }
+    pub fn set_gc_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_gc_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn memory64_enabled(&self) -> bool {
+        unsafe { ffi::wabt_memory64_enabled(self.raw) }
+    }
+    pub fn enable_memory64(&mut self) {
+        self.set_memory64_enabled(true);
+    }
+    pub fn disable_memory64(&mut self) {
+        self.set_memory64_enabled(false);
+    }
+    pub fn set_memory64_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_memory64_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn multi_memory_enabled(&self) -> bool {
+        unsafe { ffi::wabt_multi_memory_enabled(self.raw) }
+    }
+    pub fn enable_multi_memory(&mut self) {
+        self.set_multi_memory_enabled(true);
+    }
+    pub fn disable_mutli_memory(&mut self) {
+        self.set_multi_memory_enabled(false);
+    }
+    pub fn set_multi_memory_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_multi_memory_enabled(self.raw, value.into());
+        }
+    }
+
+    pub fn extended_const_enabled(&self) -> bool {
+        unsafe { ffi::wabt_extended_const_enabled(self.raw) }
+    }
+    pub fn enable_extended_const(&mut self) {
+        self.set_extended_const_enabled(true);
+    }
+    pub fn disable_extended_const(&mut self) {
+        self.set_extended_const_enabled(false);
+    }
+    pub fn set_extended_const_enabled(&mut self, value: bool) {
+        unsafe {
+            ffi::wabt_set_extended_const_enabled(self.raw, value.into());
         }
     }
 }
