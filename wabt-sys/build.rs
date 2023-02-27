@@ -88,6 +88,18 @@ git submodule update --init --recursive",
         cfg.flag("-std=c++17");
     }
 
+    // Generally, workaround for https://github.com/rust-lang/cc-rs/pull/506
+    if target_os == "windows" {
+        // CMake links debug or release C runtime when `cc` crate links only release one.
+        // So we just set `_DEBUG` flag for symbols to be the same
+        if env::var("DEBUG").ok().as_deref() == Some("true") {
+            cfg.define("_DEBUG", "1");
+        }
+
+        // `cc` crate tracks target features when CMake just builds with dynamic C runtime
+        cfg.static_crt(false);
+    }
+
     cfg.file("wabt/src/emscripten-helpers.cc")
         .file("wabt_shim.cc")
         .include("wabt")
