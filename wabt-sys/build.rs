@@ -48,6 +48,22 @@ git submodule update --init --recursive",
             .define("ANDROID_ABI", target_abi);
     };
 
+    // Generally, workaround for https://github.com/rust-lang/cc-rs/pull/506
+    // CMake links dynamic debug or release C runtime by default
+    // when `cc` crate links dynamic or static release one.
+    if target_os == "windows" {
+        let is_static_crt = env::var("CARGO_CFG_TARGET_FEATURE")
+            .unwrap_or_default()
+            .contains("crt-static");
+        let msvc_crt = if is_static_crt {
+            "MultiThreaded"
+        } else {
+            "MultiThreadedDLL"
+        };
+        cfg.define("CMAKE_POLICY_DEFAULT_CMP0091", "NEW")
+            .define("CMAKE_MSVC_RUNTIME_LIBRARY", msvc_crt);
+    }
+
     let dst = cfg.build();
 
     let mut out_build_dir = dst;
@@ -86,18 +102,6 @@ git submodule update --init --recursive",
         cfg.flag("/std:c++17");
     } else {
         cfg.flag("-std=c++17");
-    }
-
-    // Generally, workaround for https://github.com/rust-lang/cc-rs/pull/506
-    if target_os == "windows" {
-        // CMake links debug or release C runtime when `cc` crate links only release one.
-        // So we just set `_DEBUG` flag for symbols to be the same
-        if env::var("DEBUG").ok().as_deref() == Some("true") {
-            cfg.define("_DEBUG", "1");
-        }
-
-        // `cc` crate tracks target features when CMake just builds with dynamic C runtime
-        cfg.static_crt(false);
     }
 
     cfg.file("wabt/src/emscripten-helpers.cc")
