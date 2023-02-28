@@ -48,6 +48,22 @@ git submodule update --init --recursive",
             .define("ANDROID_ABI", target_abi);
     };
 
+    // Generally, workaround for https://github.com/rust-lang/cc-rs/pull/506
+    // CMake links dynamic debug or release C runtime by default
+    // when `cc` crate links dynamic or static release one.
+    if target_os == "windows" {
+        let is_static_crt = env::var("CARGO_CFG_TARGET_FEATURE")
+            .unwrap_or_default()
+            .contains("crt-static");
+        let msvc_crt = if is_static_crt {
+            "MultiThreaded"
+        } else {
+            "MultiThreadedDLL"
+        };
+        cfg.define("CMAKE_POLICY_DEFAULT_CMP0091", "NEW")
+            .define("CMAKE_MSVC_RUNTIME_LIBRARY", msvc_crt);
+    }
+
     let dst = cfg.build();
 
     let mut out_build_dir = dst;
